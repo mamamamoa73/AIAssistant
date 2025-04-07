@@ -2,7 +2,7 @@ import os
 import json
 import logging
 from flask import Flask, render_template, request, jsonify
-from openai import OpenAI
+from anthropic import Anthropic
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -12,12 +12,12 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
 
-# Initialize OpenAI client
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    logger.warning("OPENAI_API_KEY environment variable is not set")
+# Initialize Anthropic client
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+if not ANTHROPIC_API_KEY:
+    logger.warning("ANTHROPIC_API_KEY environment variable is not set")
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+client = Anthropic(api_key=ANTHROPIC_API_KEY)
 
 @app.route('/')
 def index():
@@ -26,7 +26,7 @@ def index():
 
 def generate_amazon_listing(product_name, category, features):
     """
-    Generate an Amazon product listing using OpenAI's GPT-4o model.
+    Generate an Amazon product listing using Anthropic's Claude model.
     
     Args:
         product_name (str): The name of the product
@@ -43,7 +43,7 @@ def generate_amazon_listing(product_name, category, features):
     # Format features as a bulleted list for the prompt
     features_text = "\n".join([f"- {feature}" for feature in features])
     
-    # Create the prompt for OpenAI
+    # Create the prompt for Claude
     prompt = f"""
     Create an Amazon product listing in JSON format for the following product:
     
@@ -59,26 +59,39 @@ def generate_amazon_listing(product_name, category, features):
     
     Structure your response as a valid JSON object with these keys:
     "title", "bullets" (an array of 5 strings), and "description".
+    
+    Respond with only the JSON object, nothing else.
     """
     
     try:
-        # Call the OpenAI API
-        # The newest OpenAI model is "gpt-4o" which was released May 13, 2024.
+        # Call the Claude API
+        # The newest Anthropic model is "claude-3-5-sonnet-20241022" which was released October 22, 2024.
         # do not change this unless explicitly requested by the user
-        response = client.chat.completions.create(
-            model="gpt-4o",
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
             messages=[
                 {"role": "system", "content": "You are an expert e-commerce copywriter specializing in Amazon product listings."},
                 {"role": "user", "content": prompt}
             ],
-            response_format={"type": "json_object"},
             temperature=0.7,
             max_tokens=1000
         )
         
         # Extract and parse the response
-        content = response.choices[0].message.content
-        listing_data = json.loads(content)
+        content = response.content[0].text
+        
+        # Try to extract JSON from the response
+        try:
+            # First, try to parse the content directly
+            listing_data = json.loads(content)
+        except json.JSONDecodeError:
+            # If direct parsing fails, try to extract JSON from markdown code blocks
+            import re
+            json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content)
+            if json_match:
+                listing_data = json.loads(json_match.group(1))
+            else:
+                raise ValueError("Could not extract valid JSON from the response")
         
         # Validate the response structure
         if not all(key in listing_data for key in ["title", "bullets", "description"]):
@@ -96,12 +109,12 @@ def generate_amazon_listing(product_name, category, features):
         }
         
     except Exception as e:
-        logger.error(f"Error in OpenAI API call: {str(e)}")
+        logger.error(f"Error in Anthropic API call: {str(e)}")
         raise Exception(f"Failed to generate listing: {str(e)}")
 
 @app.route('/api/generate-listing', methods=['POST'])
 def generate_listing():
-    """Generate Amazon product listing directly using OpenAI."""
+    """Generate Amazon product listing directly using Anthropic's Claude model."""
     try:
         # Get request data from the frontend
         data = request.json
@@ -111,7 +124,7 @@ def generate_listing():
         if not data or not all(key in data for key in ['product_name', 'category', 'features']):
             return jsonify({"detail": "Missing required fields"}), 400
         
-        # Generate the listing using OpenAI
+        # Generate the listing using Claude
         result = generate_amazon_listing(
             data['product_name'],
             data['category'],
