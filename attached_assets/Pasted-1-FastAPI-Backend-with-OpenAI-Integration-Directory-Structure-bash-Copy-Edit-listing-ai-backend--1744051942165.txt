@@ -1,0 +1,114 @@
+1. FastAPI Backend with OpenAI Integration
+Directory Structure:
+bash
+Copy
+Edit
+listing-ai-backend/
+├── app/
+│   ├── main.py         # Main FastAPI app
+│   ├── models.py       # Request/response models
+│   └── openai_utils.py # Listing generation logic
+├── .env                # OpenAI API key
+├── requirements.txt    # Dependencies
+├── README.md
+app/models.py
+python
+Copy
+Edit
+from pydantic import BaseModel
+from typing import List
+
+class ListingRequest(BaseModel):
+    product_name: str
+    category: str
+    features: List[str]
+
+class ListingResponse(BaseModel):
+    title: str
+    bullets: List[str]
+    description: str
+app/openai_utils.py
+python
+Copy
+Edit
+import os
+import openai
+from dotenv import load_dotenv
+
+load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
+def generate_amazon_listing(product_name, category, features):
+    prompt = (
+        f"Create an Amazon listing for a product.\n"
+        f"Product Name: {product_name}\n"
+        f"Category: {category}\n"
+        f"Key Features: {', '.join(features)}\n"
+        f"Format: Title, 5 bullet points, and a product description.\n"
+    )
+
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=500,
+        temperature=0.7,
+    )
+
+    text = response['choices'][0]['message']['content']
+    sections = text.split("\n")
+    title = sections[0].replace("Title: ", "").strip()
+    bullets = [line.strip("- ").strip() for line in sections[1:6]]
+    description = "\n".join(sections[6:]).strip()
+
+    return {
+        "title": title,
+        "bullets": bullets,
+        "description": description
+    }
+app/main.py
+python
+Copy
+Edit
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.models import ListingRequest, ListingResponse
+from app.openai_utils import generate_amazon_listing
+
+app = FastAPI()
+
+# Enable CORS for frontend dev
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.post("/generate-listing", response_model=ListingResponse)
+def generate_listing(data: ListingRequest):
+    result = generate_amazon_listing(
+        data.product_name,
+        data.category,
+        data.features
+    )
+    return result
+.env
+ini
+Copy
+Edit
+OPENAI_API_KEY=your-api-key-here
+requirements.txt
+nginx
+Copy
+Edit
+fastapi
+uvicorn
+openai
+python-dotenv
+Run Locally
+bash
+Copy
+Edit
+uvicorn app.main:app --reload
