@@ -225,11 +225,136 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('copy-urls').dataset.content = urlsText;
         }
         
+        // Display SEO analysis if available
+        if (data.seo_analysis) {
+            displaySeoAnalysis(data.seo_analysis);
+        }
+        
         // Setup copy buttons
         setupCopyButtons();
         
         // Scroll to results
         outputContainer.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    // Function to display SEO analysis
+    function displaySeoAnalysis(seoData) {
+        // Display SEO score
+        const score = seoData.seo_score.percentage || 0;
+        const scoreElement = document.getElementById('seo-score');
+        const ratingElement = document.getElementById('seo-rating');
+        const scoreCircle = document.getElementById('seo-score-circle');
+        
+        // Animate score counting up
+        animateCount(scoreElement, 0, score, 1500);
+        
+        // Display rating
+        ratingElement.textContent = seoData.seo_score.rating || 'Not Rated';
+        
+        // Set circle color based on score
+        let colorClass = 'bg-danger';
+        if (score >= 70) colorClass = 'bg-success';
+        else if (score >= 50) colorClass = 'bg-warning';
+        
+        // Update circle progress
+        scoreCircle.style.background = `conic-gradient(var(--bs-${colorClass.substring(3)}) 0%, var(--bs-${colorClass.substring(3)}) ${score}%, var(--bs-gray) ${score}% 100%)`;
+        
+        // Display recommendations
+        const recommendationsElement = document.getElementById('seo-recommendations');
+        recommendationsElement.innerHTML = '';
+        if (seoData.recommendations && seoData.recommendations.length > 0) {
+            seoData.recommendations.forEach(rec => {
+                const li = document.createElement('li');
+                li.textContent = rec;
+                recommendationsElement.appendChild(li);
+            });
+        } else {
+            // No recommendations means perfect score
+            const li = document.createElement('li');
+            li.textContent = "Great job! Your listing is well-optimized for Amazon search.";
+            recommendationsElement.appendChild(li);
+        }
+        
+        // Display title analysis
+        if (seoData.title_analysis) {
+            const titleAnalysis = document.getElementById('title-analysis');
+            const charCount = seoData.title_analysis.character_count;
+            const charLimit = seoData.title_analysis.character_limit;
+            let statusClass = 'text-success';
+            
+            if (charCount > charLimit) {
+                statusClass = 'text-danger';
+            } else if (charCount < 100) {
+                statusClass = 'text-warning';
+            }
+            
+            titleAnalysis.innerHTML = `
+                <div class="${statusClass}">
+                    Character count: ${charCount}/${charLimit} 
+                    ${charCount > charLimit ? '(Too long)' : charCount < 100 ? '(Could be longer)' : '(Optimal)'}
+                </div>
+            `;
+        }
+        
+        // Display keyword density analysis
+        if (seoData.keyword_density) {
+            const densityTable = document.getElementById('keyword-density-table');
+            densityTable.innerHTML = '';
+            
+            Object.entries(seoData.keyword_density).forEach(([keyword, data]) => {
+                const row = document.createElement('tr');
+                
+                // Keyword
+                const keywordCell = document.createElement('td');
+                keywordCell.textContent = keyword;
+                row.appendChild(keywordCell);
+                
+                // Count
+                const countCell = document.createElement('td');
+                countCell.textContent = data.count;
+                row.appendChild(countCell);
+                
+                // Density
+                const densityCell = document.createElement('td');
+                densityCell.textContent = data.percentage + '%';
+                row.appendChild(densityCell);
+                
+                // Status
+                const statusCell = document.createElement('td');
+                let statusClass = 'keyword-status-good';
+                let statusText = 'Good';
+                
+                if (data.percentage < 0.5) {
+                    statusClass = 'keyword-status-warning';
+                    statusText = 'Too Low';
+                } else if (data.percentage > 2.5) {
+                    statusClass = 'keyword-status-danger';
+                    statusText = 'Too High';
+                }
+                
+                statusCell.innerHTML = `<span class="${statusClass}">${statusText}</span>`;
+                row.appendChild(statusCell);
+                
+                densityTable.appendChild(row);
+            });
+        }
+    }
+    
+    // Function to animate a number counting up
+    function animateCount(element, start, end, duration) {
+        let startTimestamp = null;
+        const step = (timestamp) => {
+            if (!startTimestamp) startTimestamp = timestamp;
+            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+            const currentCount = Math.floor(progress * (end - start) + start);
+            element.textContent = currentCount;
+            if (progress < 1) {
+                window.requestAnimationFrame(step);
+            } else {
+                element.textContent = end;  // Ensure the final value is exact
+            }
+        };
+        window.requestAnimationFrame(step);
     }
     
     // Function to show error message

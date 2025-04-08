@@ -2,6 +2,8 @@ import os
 import json
 import logging
 import random
+import re
+from collections import Counter
 from flask import Flask, render_template, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
@@ -65,17 +67,18 @@ def index():
     """Render the main page with the listing generator form."""
     return render_template('index.html')
 
-def generate_amazon_listing(product_name, category, features):
+def generate_amazon_listing(product_name, category, features, target_keywords=None):
     """
-    Generate an Amazon product listing using a template-based approach.
+    Generate an Amazon product listing using a template-based approach with SEO optimization.
     
     Args:
         product_name (str): The name of the product
         category (str): Product category
         features (list): List of key product features
+        target_keywords (list, optional): List of target keywords for SEO optimization
         
     Returns:
-        dict: Generated listing with title, bullets, description, keywords, and competitor URLs
+        dict: Generated listing with title, bullets, description, keywords, competitor URLs, and SEO analysis
     """
     # Validate inputs
     if not product_name or not category or not features:
@@ -199,6 +202,149 @@ def generate_amazon_listing(product_name, category, features):
             "title": competitor_titles[i]
         })
     
+    # Perform SEO analysis
+    def analyze_keyword_density(text, keywords):
+        """Analyze keyword density in the given text"""
+        text = text.lower()
+        words = re.findall(r'\b\w+\b', text)
+        total_words = len(words)
+        
+        if total_words == 0:
+            return {}
+        
+        # Count occurrences of each keyword
+        density = {}
+        for keyword in keywords:
+            keyword = keyword.lower()
+            count = text.count(keyword)
+            if count > 0:
+                density[keyword] = {
+                    'count': count,
+                    'percentage': round((count / total_words) * 100, 2)
+                }
+        
+        return density
+    
+    def analyze_title_length(title):
+        """Analyze title length according to Amazon's guidelines"""
+        char_count = len(title)
+        char_limit = 200
+        
+        result = {
+            'character_count': char_count,
+            'character_limit': char_limit,
+            'within_limit': char_count <= char_limit
+        }
+        
+        if char_count > char_limit:
+            result['recommendation'] = f"Title exceeds Amazon's character limit by {char_count - char_limit} characters. Consider shortening it."
+        elif char_count < 100:
+            result['recommendation'] = "Title could be more descriptive. Consider adding more relevant keywords while staying under the 200 character limit."
+        else:
+            result['recommendation'] = "Title length is optimal for Amazon's guidelines."
+            
+        return result
+    
+    def analyze_keyword_placement(title, bullets, keywords):
+        """Analyze keyword placement in title and bullets"""
+        title_lower = title.lower()
+        result = {
+            'keywords_in_title': [],
+            'keywords_in_bullets': [],
+            'missing_keywords': []
+        }
+        
+        for keyword in keywords:
+            keyword_lower = keyword.lower()
+            found_in_title = keyword_lower in title_lower
+            
+            # Check if keyword appears in any bullet points
+            found_in_bullets = any(keyword_lower in bullet.lower() for bullet in bullets)
+            
+            if found_in_title:
+                result['keywords_in_title'].append(keyword)
+            
+            if found_in_bullets:
+                result['keywords_in_bullets'].append(keyword)
+                
+            if not found_in_title and not found_in_bullets:
+                result['missing_keywords'].append(keyword)
+        
+        return result
+    
+    def calculate_seo_score(title_analysis, keyword_analysis, density_analysis):
+        """Calculate an overall SEO score based on various factors"""
+        score = 0
+        max_score = 100
+        
+        # Title within limit: 20 points
+        if title_analysis['within_limit']:
+            score += 20
+        
+        # Keywords in title: up to 25 points
+        keywords_in_title_ratio = len(keyword_analysis['keywords_in_title']) / len(keywords) if keywords else 0
+        score += round(keywords_in_title_ratio * 25)
+        
+        # Keywords in bullets: up to 20 points
+        keywords_in_bullets_ratio = len(keyword_analysis['keywords_in_bullets']) / len(keywords) if keywords else 0
+        score += round(keywords_in_bullets_ratio * 20)
+        
+        # Keyword density: up to 15 points
+        if density_analysis:
+            # Check if at least some keywords have a good density (0.5% to 2.5%)
+            good_density_count = sum(1 for k, v in density_analysis.items() 
+                                    if 0.5 <= v['percentage'] <= 2.5)
+            if good_density_count:
+                score += round((good_density_count / len(density_analysis)) * 15)
+        
+        # Keyword coverage: up to 20 points (no missing keywords)
+        missing_keywords_ratio = len(keyword_analysis['missing_keywords']) / len(keywords) if keywords else 1
+        score += round((1 - missing_keywords_ratio) * 20)
+        
+        return {
+            'score': score,
+            'max_score': max_score,
+            'percentage': round((score / max_score) * 100),
+            'rating': 'Excellent' if score >= 85 else 'Good' if score >= 70 else 'Fair' if score >= 50 else 'Needs Improvement'
+        }
+    
+    # Perform SEO analysis on the generated content
+    full_text = title + " " + " ".join(bullets) + " " + template["description"]
+    
+    title_analysis = analyze_title_length(title)
+    density_analysis = analyze_keyword_density(full_text, keywords)
+    keyword_placement = analyze_keyword_placement(title, bullets, keywords)
+    
+    # Calculate overall SEO score
+    seo_score = calculate_seo_score(title_analysis, keyword_placement, density_analysis)
+    
+    # Prepare SEO analysis results
+    seo_analysis = {
+        'title_analysis': title_analysis,
+        'keyword_density': density_analysis,
+        'keyword_placement': keyword_placement,
+        'seo_score': seo_score,
+        'recommendations': []
+    }
+    
+    # Generate recommendations based on analysis
+    if not title_analysis['within_limit']:
+        seo_analysis['recommendations'].append(title_analysis['recommendation'])
+    
+    if keyword_placement['missing_keywords']:
+        missing_kw_str = ", ".join(keyword_placement['missing_keywords'][:3])
+        if len(keyword_placement['missing_keywords']) > 3:
+            missing_kw_str += f" and {len(keyword_placement['missing_keywords']) - 3} more"
+        seo_analysis['recommendations'].append(f"Consider including these keywords in your title or bullets: {missing_kw_str}")
+    
+    low_density_kw = [k for k, v in density_analysis.items() if v['percentage'] < 0.5]
+    if low_density_kw and len(low_density_kw) <= 3:
+        seo_analysis['recommendations'].append(f"Increase the usage of these keywords: {', '.join(low_density_kw)}")
+    
+    high_density_kw = [k for k, v in density_analysis.items() if v['percentage'] > 2.5]
+    if high_density_kw and len(high_density_kw) <= 3:
+        seo_analysis['recommendations'].append(f"Reduce the frequency of these keywords to avoid keyword stuffing: {', '.join(high_density_kw)}")
+    
     # Store the generated listing in the database
     try:
         with app.app_context():
@@ -243,7 +389,8 @@ def generate_amazon_listing(product_name, category, features):
         "bullets": bullets,
         "description": template["description"],
         "keywords": keywords,
-        "competitor_urls": competitor_urls
+        "competitor_urls": competitor_urls,
+        "seo_analysis": seo_analysis
     }
 
 @app.route('/api/generate-listing', methods=['POST'])
