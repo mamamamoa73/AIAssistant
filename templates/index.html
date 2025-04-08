@@ -50,6 +50,28 @@
                                 </button>
                             </div>
                             
+                            <!-- Keywords -->
+                            <div class="mb-3">
+                                <label for="keywords" class="form-label">Target Keywords (optional)</label>
+                                <input type="text" class="form-control" id="keywords" placeholder="e.g., air purifier, hepa filter, quiet, home (comma separated)">
+                                <div class="form-text">Enter important keywords to target in your listing. Separate with commas.</div>
+                            </div>
+                            
+                            <!-- Competitor URLs -->
+                            <div class="mb-3">
+                                <label class="form-label">Competitor URLs (optional)</label>
+                                <div id="urls-container" class="urls-container">
+                                    <div class="url-item input-group mb-2">
+                                        <input type="url" class="form-control competitor-url" placeholder="https://www.amazon.com/dp/ASIN">
+                                        <button type="button" class="btn btn-outline-danger remove-url">×</button>
+                                    </div>
+                                </div>
+                                <button type="button" id="add-url" class="btn btn-outline-primary btn-sm">
+                                    + Add Competitor URL
+                                </button>
+                                <div class="form-text">Add links to similar products for reference.</div>
+                            </div>
+                            
                             <!-- Error Message -->
                             <div id="error-container" class="error-message" style="display: none;"></div>
                             
