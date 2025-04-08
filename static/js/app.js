@@ -1,66 +1,138 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize the form
-    const form = document.getElementById('listing-form');
-    const featuresContainer = document.getElementById('features-container');
+    // UI Elements
+    const listingForm = document.getElementById('listing-form');
     const addFeatureBtn = document.getElementById('add-feature');
-    const loadingOverlay = document.getElementById('loading-overlay');
+    const featuresContainer = document.getElementById('features-container');
     const outputContainer = document.getElementById('output-container');
+    const loadingOverlay = document.getElementById('loading-overlay');
     const errorContainer = document.getElementById('error-container');
     
-    // Add first feature input
+    // URL handling elements
+    const addUrlBtn = document.getElementById('add-url');
+    const urlsContainer = document.getElementById('urls-container');
+    
+    // Initialize with default feature inputs
     if (featuresContainer.children.length === 0) {
-        addFeatureInput();
+        for (let i = 0; i < 3; i++) {
+            addFeatureInput();
+        }
     }
     
-    // Add feature input button
-    addFeatureBtn.addEventListener('click', function() {
-        addFeatureInput();
+    // Event listeners
+    if (addFeatureBtn) {
+        addFeatureBtn.addEventListener('click', addFeatureInput);
+    }
+    
+    if (addUrlBtn) {
+        addUrlBtn.addEventListener('click', addUrlInput);
+    }
+    
+    // Delegate event handling for dynamically created "remove" buttons
+    document.addEventListener('click', function(e) {
+        // Handle feature remove buttons
+        if (e.target && e.target.classList.contains('remove-feature')) {
+            e.target.closest('.feature-item').remove();
+        }
+        
+        // Handle URL remove buttons
+        if (e.target && e.target.classList.contains('remove-url')) {
+            e.target.closest('.url-item').remove();
+        }
     });
     
-    // Form submission
-    form.addEventListener('submit', function(e) {
+    // Handle form submission
+    if (listingForm) {
+        listingForm.addEventListener('submit', handleFormSubmit);
+    }
+    
+    // Set up copy buttons
+    setupCopyButtons();
+    
+    // Function to add new feature input
+    function addFeatureInput() {
+        const newFeatureItem = document.createElement('div');
+        newFeatureItem.className = 'feature-item';
+        
+        newFeatureItem.innerHTML = `
+            <input type="text" class="form-control feature-input" placeholder="e.g., High-efficiency particulate air (HEPA) filter" required>
+            <button type="button" class="btn btn-outline-danger remove-feature">×</button>
+        `;
+        
+        featuresContainer.appendChild(newFeatureItem);
+    }
+    
+    // Function to add URL input
+    function addUrlInput() {
+        const newUrlItem = document.createElement('div');
+        newUrlItem.className = 'url-item input-group mb-2';
+        
+        newUrlItem.innerHTML = `
+            <input type="url" class="form-control competitor-url" placeholder="https://www.amazon.com/dp/ASIN">
+            <button type="button" class="btn btn-outline-danger remove-url">×</button>
+        `;
+        
+        urlsContainer.appendChild(newUrlItem);
+    }
+    
+    // Handle form submission
+    function handleFormSubmit(e) {
         e.preventDefault();
         
-        // Clear previous errors
-        errorContainer.style.display = 'none';
-        errorContainer.textContent = '';
-        
-        // Get form data
+        // Get form values
         const productName = document.getElementById('product-name').value.trim();
         const category = document.getElementById('category').value.trim();
+        
+        // Get features
         const featureInputs = document.querySelectorAll('.feature-input');
+        const features = Array.from(featureInputs)
+            .map(input => input.value.trim())
+            .filter(feature => feature !== '');
+            
+        // Get keywords (if provided)
+        const keywordsInput = document.getElementById('keywords').value.trim();
+        const keywords = keywordsInput ? keywordsInput.split(',').map(k => k.trim()).filter(k => k !== '') : [];
+        
+        // Get competitor URLs (if provided)
+        const urlInputs = document.querySelectorAll('.competitor-url');
+        const competitorUrls = Array.from(urlInputs)
+            .map(input => input.value.trim())
+            .filter(url => url !== '');
         
         // Validate inputs
-        if (!productName || !category) {
-            showError('Product name and category are required.');
+        if (!productName || !category || features.length === 0) {
+            showError('Please fill out all required fields');
             return;
         }
         
-        // Collect features (skip empty ones)
-        const features = [];
-        featureInputs.forEach(input => {
-            const value = input.value.trim();
-            if (value) {
-                features.push(value);
-            }
-        });
-        
-        if (features.length === 0) {
-            showError('At least one product feature is required.');
+        // Validation for features
+        if (features.length < 3) {
+            showError('Please add at least 3 product features');
             return;
         }
         
         // Show loading overlay
         loadingOverlay.style.display = 'flex';
+        errorContainer.style.display = 'none';
         
-        // Prepare request data
+        // Prepare data for API request
         const requestData = {
             product_name: productName,
             category: category,
             features: features
         };
         
-        // Make API call
+        // Add optional parameters if provided
+        if (keywords.length > 0) {
+            requestData.keywords = keywords;
+        }
+        
+        if (competitorUrls.length > 0) {
+            requestData.competitor_urls = competitorUrls.map((url, index) => {
+                return { url: url, title: '', position: index };
+            });
+        }
+        
+        // Make API request
         fetch('/api/generate-listing', {
             method: 'POST',
             headers: {
@@ -88,45 +160,13 @@ document.addEventListener('DOMContentLoaded', function() {
             loadingOverlay.style.display = 'none';
             
             // Show error message
-            showError(error.message || 'Failed to generate listing. Please try again.');
+            showError(error.message);
+            console.error('Error:', error);
         });
-    });
-    
-    // Function to add a new feature input
-    function addFeatureInput() {
-        const featureItem = document.createElement('div');
-        featureItem.className = 'feature-item';
-        
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'form-control feature-input';
-        input.placeholder = 'Enter a product feature';
-        
-        const removeBtn = document.createElement('button');
-        removeBtn.type = 'button';
-        removeBtn.className = 'btn btn-outline-danger';
-        removeBtn.innerHTML = '&times;';
-        removeBtn.addEventListener('click', function() {
-            if (featuresContainer.children.length > 1) {
-                featuresContainer.removeChild(featureItem);
-            } else {
-                input.value = ''; // Just clear the input if it's the last one
-            }
-        });
-        
-        featureItem.appendChild(input);
-        featureItem.appendChild(removeBtn);
-        featuresContainer.appendChild(featureItem);
-        
-        // Focus the new input
-        input.focus();
     }
     
-    // Function to display results
+    // Display the generated results
     function displayResults(data) {
-        // Show output container
-        outputContainer.style.display = 'block';
-        
         // Set title
         document.getElementById('product-title').textContent = data.title;
         document.getElementById('copy-title').dataset.content = data.title;
@@ -134,12 +174,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Set bullet points
         const bulletsList = document.getElementById('bullets-list');
         bulletsList.innerHTML = '';
+        
         data.bullets.forEach(bullet => {
             const li = document.createElement('li');
             li.textContent = bullet;
             bulletsList.appendChild(li);
         });
-        document.getElementById('copy-bullets').dataset.content = data.bullets.join('\n• ');
+        
+        document.getElementById('copy-bullets').dataset.content = data.bullets.join('\n');
         
         // Set description
         document.getElementById('product-description').textContent = data.description;
@@ -174,55 +216,34 @@ document.addEventListener('DOMContentLoaded', function() {
             data.competitor_urls.forEach((competitor, index) => {
                 const row = document.createElement('tr');
                 
-                // Index column
-                const indexCell = document.createElement('th');
-                indexCell.scope = 'row';
-                indexCell.textContent = index + 1;
-                row.appendChild(indexCell);
+                // Position number
+                const positionCell = document.createElement('td');
+                positionCell.textContent = index + 1;
+                row.appendChild(positionCell);
                 
-                // Title column
+                // Product title
                 const titleCell = document.createElement('td');
-                titleCell.textContent = competitor.title;
+                titleCell.textContent = competitor.title || 'Competitor Product';
                 row.appendChild(titleCell);
                 
-                // URL column with copy button
+                // URL with link
                 const urlCell = document.createElement('td');
-                
-                // URL truncated display with tooltip
-                const urlSpan = document.createElement('span');
-                const shortUrl = competitor.url.length > 30 ? 
-                    competitor.url.substring(0, 30) + '...' : 
-                    competitor.url;
-                urlSpan.textContent = shortUrl;
-                urlSpan.title = competitor.url;
-                urlSpan.className = 'me-2';
-                urlCell.appendChild(urlSpan);
-                
-                // Individual copy button for this URL
-                const copyBtn = document.createElement('button');
-                copyBtn.className = 'btn btn-sm btn-outline-info';
-                copyBtn.textContent = 'Copy';
-                copyBtn.dataset.content = competitor.url;
-                copyBtn.addEventListener('click', function() {
-                    navigator.clipboard.writeText(this.dataset.content).then(() => {
-                        const originalText = this.textContent;
-                        this.textContent = 'Copied!';
-                        setTimeout(() => {
-                            this.textContent = originalText;
-                        }, 2000);
-                    });
-                });
-                urlCell.appendChild(copyBtn);
-                
+                const urlLink = document.createElement('a');
+                urlLink.href = competitor.url;
+                urlLink.textContent = competitor.url;
+                urlLink.target = '_blank';
+                urlLink.rel = 'noopener noreferrer';
+                urlCell.appendChild(urlLink);
                 row.appendChild(urlCell);
+                
                 urlsList.appendChild(row);
                 
-                // Add to copy all content
-                urlsText += `${index + 1}. ${competitor.title}: ${competitor.url}\n`;
+                // Add to copy text
+                urlsText += `${competitor.url}\n`;
             });
             
-            // Set copy all button content
-            document.getElementById('copy-urls').dataset.content = urlsText;
+            // Set copy content for URLs
+            document.getElementById('copy-urls').dataset.content = urlsText.trim();
         }
         
         // Display SEO analysis if available
@@ -230,159 +251,13 @@ document.addEventListener('DOMContentLoaded', function() {
             displaySeoAnalysis(data.seo_analysis);
         }
         
-        // Setup copy buttons
-        setupCopyButtons();
+        // Show the output container
+        outputContainer.style.display = 'block';
         
         // Scroll to results
         outputContainer.scrollIntoView({ behavior: 'smooth' });
     }
     
-    // Function to display SEO analysis
-    function displaySeoAnalysis(seoData) {
-        // Display SEO score
-        const score = seoData.seo_score.percentage || 0;
-        const scoreElement = document.getElementById('seo-score');
-        const ratingElement = document.getElementById('seo-rating');
-        const scoreCircle = document.getElementById('seo-score-circle');
-        
-        // Animate score counting up
-        animateCount(scoreElement, 0, score, 1500);
-        
-        // Display rating
-        ratingElement.textContent = seoData.seo_score.rating || 'Not Rated';
-        
-        // Set circle color based on score
-        let colorClass = 'bg-danger';
-        if (score >= 70) colorClass = 'bg-success';
-        else if (score >= 50) colorClass = 'bg-warning';
-        
-        // Update circle progress
-        scoreCircle.style.background = `conic-gradient(var(--bs-${colorClass.substring(3)}) 0%, var(--bs-${colorClass.substring(3)}) ${score}%, var(--bs-gray) ${score}% 100%)`;
-        
-        // Display recommendations
-        const recommendationsElement = document.getElementById('seo-recommendations');
-        recommendationsElement.innerHTML = '';
-        if (seoData.recommendations && seoData.recommendations.length > 0) {
-            seoData.recommendations.forEach(rec => {
-                const li = document.createElement('li');
-                li.textContent = rec;
-                recommendationsElement.appendChild(li);
-            });
-        } else {
-            // No recommendations means perfect score
-            const li = document.createElement('li');
-            li.textContent = "Great job! Your listing is well-optimized for Amazon search.";
-            recommendationsElement.appendChild(li);
-        }
-        
-        // Display title analysis
-        if (seoData.title_analysis) {
-            const titleAnalysis = document.getElementById('title-analysis');
-            const charCount = seoData.title_analysis.character_count;
-            const charLimit = seoData.title_analysis.character_limit;
-            let statusClass = 'text-success';
-            
-            if (charCount > charLimit) {
-                statusClass = 'text-danger';
-            } else if (charCount < 100) {
-                statusClass = 'text-warning';
-            }
-            
-            titleAnalysis.innerHTML = `
-                <div class="${statusClass}">
-                    Character count: ${charCount}/${charLimit} 
-                    ${charCount > charLimit ? '(Too long)' : charCount < 100 ? '(Could be longer)' : '(Optimal)'}
-                </div>
-            `;
-        }
-        
-        // Display keyword density analysis
-        if (seoData.keyword_density) {
-            const densityTable = document.getElementById('keyword-density-table');
-            densityTable.innerHTML = '';
-            
-            Object.entries(seoData.keyword_density).forEach(([keyword, data]) => {
-                const row = document.createElement('tr');
-                
-                // Keyword
-                const keywordCell = document.createElement('td');
-                keywordCell.textContent = keyword;
-                row.appendChild(keywordCell);
-                
-                // Count
-                const countCell = document.createElement('td');
-                countCell.textContent = data.count;
-                row.appendChild(countCell);
-                
-                // Density
-                const densityCell = document.createElement('td');
-                densityCell.textContent = data.percentage + '%';
-                row.appendChild(densityCell);
-                
-                // Status
-                const statusCell = document.createElement('td');
-                let statusClass = 'keyword-status-good';
-                let statusText = 'Good';
-                
-                if (data.percentage < 0.5) {
-                    statusClass = 'keyword-status-warning';
-                    statusText = 'Too Low';
-                } else if (data.percentage > 2.5) {
-                    statusClass = 'keyword-status-danger';
-                    statusText = 'Too High';
-                }
-                
-                statusCell.innerHTML = `<span class="${statusClass}">${statusText}</span>`;
-                row.appendChild(statusCell);
-                
-                densityTable.appendChild(row);
-            });
-        }
-    }
-    
-    // Function to animate a number counting up
-    function animateCount(element, start, end, duration) {
-        let startTimestamp = null;
-        const step = (timestamp) => {
-            if (!startTimestamp) startTimestamp = timestamp;
-            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-            const currentCount = Math.floor(progress * (end - start) + start);
-            element.textContent = currentCount;
-            if (progress < 1) {
-                window.requestAnimationFrame(step);
-            } else {
-                element.textContent = end;  // Ensure the final value is exact
-            }
-        };
-        window.requestAnimationFrame(step);
-    }
-    
-    // Function to show error message
-    function showError(message) {
-        errorContainer.textContent = message;
-        errorContainer.style.display = 'block';
-    }
-    
-    // Setup copy buttons functionality
-    function setupCopyButtons() {
-        const copyButtons = document.querySelectorAll('.copy-btn');
-        
-        copyButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const content = this.dataset.content;
-                navigator.clipboard.writeText(content).then(() => {
-                    // Change button text temporarily
-                    const originalText = this.textContent;
-                    this.textContent = 'Copied!';
-                    setTimeout(() => {
-                        this.textContent = originalText;
-                    }, 2000);
-                });
-            });
-        });
-    }
-});
-
     // Display SEO analysis data
     function displaySeoAnalysis(seoData) {
         if (!seoData) return;
@@ -470,7 +345,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
-
+    
     // Function to animate count for SEO score
     function animateCount(element, start, end, duration) {
         if (!element) return;
@@ -489,3 +364,49 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         window.requestAnimationFrame(step);
     }
+    
+    // Show error message
+    function showError(message) {
+        errorContainer.textContent = message;
+        errorContainer.style.display = 'block';
+    }
+    
+    // Set up copy buttons
+    function setupCopyButtons() {
+        const copyButtons = document.querySelectorAll('.copy-btn');
+        
+        copyButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const content = button.dataset.content;
+                
+                if (content) {
+                    // Create temporary textarea to copy from
+                    const textarea = document.createElement('textarea');
+                    textarea.value = content;
+                    textarea.style.position = 'fixed'; // Prevent scrolling to the bottom
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    
+                    try {
+                        // Execute copy command
+                        document.execCommand('copy');
+                        
+                        // Update button text temporarily
+                        const originalText = button.textContent;
+                        button.textContent = 'Copied!';
+                        
+                        // Reset button text after 2 seconds
+                        setTimeout(() => {
+                            button.textContent = originalText;
+                        }, 2000);
+                    } catch (err) {
+                        console.error('Failed to copy text: ', err);
+                    } finally {
+                        // Remove the temporary textarea
+                        document.body.removeChild(textarea);
+                    }
+                }
+            });
+        });
+    }
+});

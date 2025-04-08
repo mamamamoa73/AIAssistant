@@ -204,3 +204,19 @@ body {
         font-size: 2rem;
     }
 }
+
+/* URL input styles */
+.url-item {
+    margin-bottom: 8px;
+}
+
+.urls-container {
+    margin-bottom: 10px;
+}
+
+.remove-url {
+    font-size: 1.2rem;
+    line-height: 1;
+    padding: 0.25rem 0.5rem;
+}
+

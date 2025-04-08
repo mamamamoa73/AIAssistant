@@ -155,25 +155,33 @@ def generate_amazon_listing(product_name, category, features, target_keywords=No
             bullet = bullet.replace("[CATEGORY]", category)
             bullets.append(bullet)
     
-    # Generate keywords based on product features and category
-    keywords_templates = {
-        "Electronics": ["tech", "gadget", "smart", "wireless", "digital", "device", "electronic", "innovative"],
-        "Home & Kitchen": ["home", "kitchen", "decor", "appliance", "cookware", "furniture", "household", "storage"],
-        "Beauty & Personal Care": ["beauty", "skincare", "haircare", "cosmetic", "organic", "natural", "wellness", "spa"],
-        "Sports & Outdoors": ["sports", "fitness", "outdoor", "training", "athletic", "performance", "equipment", "gear"]
-    }
+    # Use user-provided keywords if available, or generate them
+    if target_keywords and isinstance(target_keywords, list) and len(target_keywords) > 0:
+        # Use user-provided keywords
+        logger.debug("Using user-provided keywords")
+        keywords = target_keywords
+    else:
+        # Generate keywords based on product features and category
+        logger.debug("Generating keywords automatically")
+        keywords_templates = {
+            "Electronics": ["tech", "gadget", "smart", "wireless", "digital", "device", "electronic", "innovative"],
+            "Home & Kitchen": ["home", "kitchen", "decor", "appliance", "cookware", "furniture", "household", "storage"],
+            "Beauty & Personal Care": ["beauty", "skincare", "haircare", "cosmetic", "organic", "natural", "wellness", "spa"],
+            "Sports & Outdoors": ["sports", "fitness", "outdoor", "training", "athletic", "performance", "equipment", "gear"]
+        }
+        
+        base_keywords = keywords_templates.get(category, ["quality", "premium", "professional", "durable"])
+        
+        # Extract potential keywords from features
+        feature_words = []
+        for feature in features:
+            words = feature.lower().split()
+            feature_words.extend([word for word in words if len(word) > 3 and word not in ["with", "that", "this", "from", "your", "will", "have", "more", "than"]])
+        
+        # Generate final keywords
+        product_words = product_name.lower().split()
+        keywords = list(set(base_keywords + feature_words + product_words))[:15]  # Limit to 15 keywords
     
-    base_keywords = keywords_templates.get(category, ["quality", "premium", "professional", "durable"])
-    
-    # Extract potential keywords from features
-    feature_words = []
-    for feature in features:
-        words = feature.lower().split()
-        feature_words.extend([word for word in words if len(word) > 3 and word not in ["with", "that", "this", "from", "your", "will", "have", "more", "than"]])
-    
-    # Generate final keywords
-    product_words = product_name.lower().split()
-    keywords = list(set(base_keywords + feature_words + product_words))[:15]  # Limit to 15 keywords
     keywords_str = ", ".join(keywords)
     
     # Generate competitor URLs based on product name and category
@@ -405,12 +413,21 @@ def generate_listing():
         if not data or not all(key in data for key in ['product_name', 'category', 'features']):
             return jsonify({"detail": "Missing required fields"}), 400
         
+        # Check for optional parameters
+        target_keywords = data.get('keywords', None)
+        competitor_urls = data.get('competitor_urls', None)
+        
         # Generate the listing using templates
         result = generate_amazon_listing(
             data['product_name'],
             data['category'],
-            data['features']
+            data['features'],
+            target_keywords=target_keywords
         )
+        
+        # Replace generated competitor URLs with user-provided ones if available
+        if competitor_urls and isinstance(competitor_urls, list) and len(competitor_urls) > 0:
+            result['competitor_urls'] = competitor_urls
         
         logger.debug(f"Successfully generated listing for: {data['product_name']}")
         return jsonify(result)
