@@ -1,0 +1,179 @@
+/* AI Assistant Styles */
+.ai-assistant-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    transition: all 0.3s ease;
+    opacity: 0;
+    transform: translateY(20px);
+    pointer-events: none;
+}
+
+.ai-assistant-container.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.ai-assistant-mascot {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: #5B75E6;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    z-index: 2;
+    margin-top: 8px;
+    position: relative;
+}
+
+.ai-assistant-mascot:hover {
+    transform: scale(1.05);
+}
+
+.ai-assistant-tip {
+    background-color: white;
+    color: #333;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    max-width: 300px;
+    margin-bottom: 10px;
+    position: relative;
+    opacity: 1;
+    transform-origin: bottom right;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+/* Speech bubble pointer */
+.ai-assistant-tip:after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    right: 20px;
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid white;
+}
+
+.ai-assistant-close {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    color: #6c757d;
+    z-index: 3;
+    transition: all 0.2s ease;
+}
+
+.ai-assistant-close:hover {
+    background-color: #e9ecef;
+    color: #495057;
+}
+
+/* Animation for tips */
+@keyframes tip-bounce {
+    0% { transform: scale(0.8); opacity: 0; }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.tip-appear {
+    animation: tip-bounce 0.3s ease-out forwards;
+}
+
+/* Dark theme compatibility */
+[data-bs-theme="dark"] .ai-assistant-tip {
+    background-color: #343a40;
+    color: #f8f9fa;
+}
+
+[data-bs-theme="dark"] .ai-assistant-tip:after {
+    border-top-color: #343a40;
+}
+
+[data-bs-theme="dark"] .ai-assistant-close {
+    background-color: #495057;
+    border-color: #6c757d;
+    color: #dee2e6;
+}
+
+[data-bs-theme="dark"] .ai-assistant-close:hover {
+    background-color: #6c757d;
+    color: #f8f9fa;
+}
+
+/* Make assistant responsive */
+@media (max-width: 768px) {
+    .ai-assistant-tip {
+        max-width: 250px;
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 576px) {
+    .ai-assistant-container {
+        bottom: 10px;
+        right: 10px;
+    }
+    
+    .ai-assistant-tip {
+        max-width: 200px;
+        padding: 10px 12px;
+        font-size: 12px;
+    }
+    
+    .ai-assistant-mascot {
+        width: 50px;
+        height: 50px;
+    }
+}
+
+/* Add a bounce animation to the mascot */
+@keyframes mascot-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
+.ai-assistant-container.visible .ai-assistant-mascot {
+    animation: mascot-bounce 2s ease-in-out infinite;
+}
+
+/* Style the toggle button */
+#toggle-assistant {
+    position: relative;
+    padding-left: 28px;
+}
+
+#toggle-assistant::before {
+    content: "";
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    background-color: #5B75E6;
+    border-radius: 50%;
+}
