@@ -1,23 +1,55 @@
 import os
 import json
 import logging
+import random
 from flask import Flask, render_template, request, jsonify
-from openai import OpenAI
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import DeclarativeBase
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# Initialize Flask app
+# Define the base class for SQLAlchemy models
+class Base(DeclarativeBase):
+    pass
+
+# Initialize Flask app and SQLAlchemy
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
 
-# Initialize OpenAI client
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    logger.warning("OPENAI_API_KEY environment variable is not set")
+# Configure the database
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_recycle": 300,
+    "pool_pre_ping": True,
+}
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+# Initialize SQLAlchemy
+db = SQLAlchemy(model_class=Base)
+db.init_app(app)
+
+# Define models
+class Listing(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    product_name = db.Column(db.String(255), nullable=False)
+    category = db.Column(db.String(100), nullable=False)
+    title = db.Column(db.String(500), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    
+    # Define relationship with bullet points
+    bullet_points = db.relationship('BulletPoint', backref='listing', cascade='all, delete-orphan')
+
+class BulletPoint(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    listing_id = db.Column(db.Integer, db.ForeignKey('listing.id'), nullable=False)
+    bullet_text = db.Column(db.String(500), nullable=False)
+    position = db.Column(db.Integer, nullable=False)
+
+# Create all tables
+with app.app_context():
+    db.create_all()
 
 @app.route('/')
 def index():
@@ -26,7 +58,7 @@ def index():
 
 def generate_amazon_listing(product_name, category, features):
     """
-    Generate an Amazon product listing using OpenAI's GPT-4o model.
+    Generate an Amazon product listing using a template-based approach.
     
     Args:
         product_name (str): The name of the product
@@ -40,75 +72,114 @@ def generate_amazon_listing(product_name, category, features):
     if not product_name or not category or not features:
         raise ValueError("Missing required product information")
     
-    # Format features as a bulleted list for the prompt
-    features_text = "\n".join([f"- {feature}" for feature in features])
-    
-    # Create the prompt for OpenAI
-    prompt = f"""
-    Create an Amazon product listing in JSON format for the following product:
-    
-    Product Name: {product_name}
-    Category: {category}
-    Key Features:
-    {features_text}
-    
-    Please generate:
-    1. A compelling SEO-optimized title for Amazon (max 200 characters)
-    2. 5 benefit-focused bullet points (each under 200 characters)
-    3. A detailed product description (300-500 words)
-    
-    Structure your response as a valid JSON object with these keys:
-    "title", "bullets" (an array of 5 strings), and "description".
-    
-    Respond with only the JSON object, nothing else.
-    """
-    
-    try:
-        # Call the OpenAI API
-        # The newest OpenAI model is "gpt-4o" which was released May 13, 2024.
-        # do not change this unless explicitly requested by the user
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are an expert e-commerce copywriter specializing in Amazon product listings."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7,
-            response_format={"type": "json_object"},
-            max_tokens=1000
-        )
-        
-        # Extract and parse the response
-        content = response.choices[0].message.content
-        
-        # Parse the JSON response
-        try:
-            listing_data = json.loads(content)
-        except json.JSONDecodeError:
-            raise ValueError("Could not parse JSON from the response")
-        
-        # Validate the response structure
-        if not all(key in listing_data for key in ["title", "bullets", "description"]):
-            raise ValueError("API response missing required fields")
-        
-        if len(listing_data["bullets"]) < 5:
-            # Ensure we have exactly 5 bullets, pad if necessary
-            listing_data["bullets"] = listing_data["bullets"] + [""] * (5 - len(listing_data["bullets"]))
-            listing_data["bullets"] = listing_data["bullets"][:5]  # Truncate if more than 5
-            
-        return {
-            "title": listing_data["title"],
-            "bullets": listing_data["bullets"],
-            "description": listing_data["description"]
+    # Template patterns for different product categories
+    templates = {
+        "Electronics": {
+            "title": f"{product_name} - Premium [FEATURE1] with [FEATURE2] - Advanced [CATEGORY] Technology for [BENEFIT] - [YEAR]",
+            "description": f"Introducing the innovative {product_name}, the perfect solution for all your {category.lower()} needs. This cutting-edge device combines state-of-the-art technology with sleek design to deliver an unparalleled user experience.\n\nEngineered with precision and attention to detail, the {product_name} offers exceptional performance that stands out in today's competitive market. Whether you're a professional looking for reliable equipment or a casual user seeking convenience, this product exceeds expectations on all fronts.\n\nThe {product_name} features advanced functionality that puts it ahead of similar products. Its intuitive interface makes it accessible to users of all experience levels, while its robust construction ensures longevity and durability even with regular use.\n\nOur team of engineers has spent countless hours perfecting every aspect of the {product_name}. The result is a product that not only meets but exceeds industry standards, providing you with a truly remarkable experience every time you use it.\n\nInvest in quality and reliability with the {product_name} - the smart choice for discerning customers who demand excellence."
+        },
+        "Home & Kitchen": {
+            "title": f"{product_name} - Premium Quality [FEATURE1] for Modern Homes - Durable [CATEGORY] with [FEATURE2] - Perfect for [BENEFIT]",
+            "description": f"Transform your living space with the exceptional {product_name}, designed specifically for today's modern homes. This premium {category.lower()} item combines elegant design with practical functionality to enhance your daily life.\n\nCrafted from high-quality materials, the {product_name} is built to last and withstand the rigors of regular use. Its thoughtful design addresses common pain points while providing innovative solutions that make your home life more comfortable and convenient.\n\nThe {product_name} seamlessly integrates into any home décor style, adding both aesthetic appeal and practical value to your living space. Its versatile design makes it suitable for various uses, adapting to your changing needs.\n\nWe've paid meticulous attention to every detail of the {product_name}, ensuring that it not only looks beautiful but performs flawlessly. From the quality of materials to the precision of manufacturing, no aspect has been overlooked.\n\nBring home the {product_name} today and experience the perfect balance of style, functionality, and durability. Your satisfaction is guaranteed with this exceptional addition to your home."
+        },
+        "Beauty & Personal Care": {
+            "title": f"{product_name} - Professional [CATEGORY] [FEATURE1] - Gentle yet Effective [FEATURE2] for [BENEFIT] - Premium Quality",
+            "description": f"Discover the transformative power of the {product_name}, a revolutionary addition to your {category.lower()} routine. This premium product delivers professional-grade results from the comfort of your home, helping you look and feel your absolute best.\n\nFormulated with the finest ingredients, the {product_name} is gentle on your skin while effectively addressing your specific {category.lower()} needs. Its innovative approach sets a new standard in personal care, offering results you can see and feel immediately.\n\nThe {product_name} has been developed following extensive research and testing to ensure optimal performance and safety. Each component has been carefully selected to work in harmony, providing a comprehensive solution to your {category.lower()} requirements.\n\nPerfect for daily use, the {product_name} integrates seamlessly into your existing routine, enhancing your natural beauty without complicated procedures or extensive time commitments. Its user-friendly design makes professional-quality care accessible to everyone.\n\nChoose the {product_name} for your {category.lower()} needs and join thousands of satisfied customers who have made this exceptional product part of their daily self-care ritual."
+        },
+        "Sports & Outdoors": {
+            "title": f"{product_name} - Professional Grade [CATEGORY] Equipment - Durable [FEATURE1] with [FEATURE2] for [BENEFIT] - Performance Engineered",
+            "description": f"Elevate your performance with the game-changing {product_name}, engineered for athletes and outdoor enthusiasts who demand the very best. This professional-grade {category.lower()} equipment combines innovative design with durable construction to support your active lifestyle.\n\nBuilt to withstand the challenges of intense use and varying environmental conditions, the {product_name} delivers consistent performance when you need it most. Its resilient construction ensures longevity, making it a worthwhile investment for serious enthusiasts.\n\nThe {product_name} features cutting-edge technology that enhances your natural abilities, helping you achieve new personal bests and overcome previous limitations. Every aspect has been optimized to support peak performance, giving you a competitive edge.\n\nExtensive field testing by professional athletes has informed the development of the {product_name}, resulting in equipment that addresses real-world needs and challenges. The feedback of experts has been incorporated at every stage of the design process.\n\nTake your {category.lower()} experience to the next level with the {product_name} - where superior quality meets exceptional performance for those who refuse to compromise."
         }
-        
+    }
+    
+    # Default template for categories not in our list
+    default_template = {
+        "title": f"{product_name} - Premium Quality [FEATURE1] with [FEATURE2] - Professional [CATEGORY] for [BENEFIT]",
+        "description": f"Introducing the remarkable {product_name}, a standout product in the {category} market designed to exceed your expectations. This premium item combines innovative design with exceptional functionality to deliver a superior experience.\n\nMeticulously crafted with attention to detail, the {product_name} addresses common challenges while offering unique benefits that set it apart from competitors. Every aspect has been carefully considered to ensure optimal performance and user satisfaction.\n\nThe {product_name} represents our commitment to quality and innovation in the {category} industry. We've incorporated feedback from customers and experts alike to create a product that truly meets the needs of its users.\n\nWhether you're a professional seeking reliable equipment or an enthusiast looking for quality, the {product_name} delivers consistent results you can count on. Its versatile design adapts to various situations, providing flexible solutions for diverse requirements.\n\nChoose the {product_name} for a combination of quality, performance, and value that's unmatched in today's market. Join our satisfied customers who have made this exceptional product an essential part of their lives."
+    }
+    
+    # Select the appropriate template or use default
+    template = templates.get(category, default_template)
+    
+    # Process features for title and description
+    main_features = features[:2] if len(features) >= 2 else features + ["Quality"] * (2 - len(features))
+    benefit = "Maximum Performance" if not features else features[0].split(" ")[-1]
+    
+    # Replace placeholders in title
+    title = template["title"]
+    title = title.replace("[FEATURE1]", main_features[0])
+    title = title.replace("[FEATURE2]", main_features[1])
+    title = title.replace("[CATEGORY]", category)
+    title = title.replace("[BENEFIT]", benefit)
+    title = title.replace("[YEAR]", "2025")
+    
+    # Generate benefit-focused bullet points based on features
+    bullet_templates = [
+        "[FEATURE]: Enjoy [BENEFIT] with our advanced design that sets new standards in [CATEGORY].",
+        "PREMIUM [FEATURE]: Experience exceptional [BENEFIT] that makes everyday tasks easier and more efficient.",
+        "INNOVATIVE [FEATURE]: Discover the difference with our unique approach to [BENEFIT] that competitors can't match.",
+        "DURABLE [FEATURE]: Rely on long-lasting performance with quality construction designed for [BENEFIT].",
+        "USER-FRIENDLY [FEATURE]: Appreciate the intuitive design that makes [BENEFIT] accessible to everyone.",
+        "VERSATILE [FEATURE]: Adapt to changing needs with flexible functionality perfect for various [BENEFIT] scenarios.",
+        "PROFESSIONAL-GRADE [FEATURE]: Achieve results comparable to professional services with our [BENEFIT] solution.",
+        "ECO-FRIENDLY [FEATURE]: Make responsible choices with our sustainable approach to [BENEFIT]."
+    ]
+    
+    bullets = []
+    for i, feature in enumerate(features[:5]):
+        if i < len(bullet_templates):
+            bullet = bullet_templates[i].replace("[FEATURE]", feature.upper())
+            bullet = bullet.replace("[BENEFIT]", "enhanced performance" if not benefit else benefit)
+            bullet = bullet.replace("[CATEGORY]", category)
+            bullets.append(bullet)
+    
+    # Pad bullets to exactly 5 if needed
+    if len(bullets) < 5:
+        for i in range(5 - len(bullets)):
+            index = (len(bullets) + i) % len(bullet_templates)
+            generic_feature = f"Quality Feature {i+1}"
+            bullet = bullet_templates[index].replace("[FEATURE]", generic_feature.upper())
+            bullet = bullet.replace("[BENEFIT]", "enhanced performance" if not benefit else benefit)
+            bullet = bullet.replace("[CATEGORY]", category)
+            bullets.append(bullet)
+    
+    # Store the generated listing in the database
+    try:
+        with app.app_context():
+            # Create new listing
+            new_listing = Listing(
+                product_name=product_name,
+                category=category,
+                title=title,
+                description=template["description"]
+            )
+            db.session.add(new_listing)
+            db.session.flush()  # Get the ID without committing
+            
+            # Add bullet points
+            for i, bullet_text in enumerate(bullets):
+                bullet = BulletPoint(
+                    listing_id=new_listing.id,
+                    bullet_text=bullet_text,
+                    position=i
+                )
+                db.session.add(bullet)
+                
+            db.session.commit()
+            logger.debug(f"Stored listing in database with ID: {new_listing.id}")
     except Exception as e:
-        logger.error(f"Error in OpenAI API call: {str(e)}")
-        raise Exception(f"Failed to generate listing: {str(e)}")
+        logger.error(f"Error storing listing in database: {str(e)}")
+        # Continue anyway - this is just for storage, not critical for response
+    
+    return {
+        "title": title,
+        "bullets": bullets,
+        "description": template["description"]
+    }
 
 @app.route('/api/generate-listing', methods=['POST'])
 def generate_listing():
-    """Generate Amazon product listing directly using OpenAI's GPT-4o model."""
+    """Generate Amazon product listing using template-based approach."""
     try:
         # Get request data from the frontend
         data = request.json
@@ -118,7 +189,7 @@ def generate_listing():
         if not data or not all(key in data for key in ['product_name', 'category', 'features']):
             return jsonify({"detail": "Missing required fields"}), 400
         
-        # Generate the listing using OpenAI
+        # Generate the listing using templates
         result = generate_amazon_listing(
             data['product_name'],
             data['category'],
