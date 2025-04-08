@@ -382,3 +382,110 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+    // Display SEO analysis data
+    function displaySeoAnalysis(seoData) {
+        if (!seoData) return;
+        
+        // Update SEO score with animation
+        if (seoData.seo_score && typeof seoData.seo_score.percentage === 'number') {
+            const seoScoreElement = document.getElementById('seo-score');
+            animateCount(seoScoreElement, 0, seoData.seo_score.percentage, 1000);
+            
+            // Add color class based on score
+            const scoreCircle = document.querySelector('.seo-score-circle');
+            if (scoreCircle) {
+                // Remove any existing color classes
+                scoreCircle.classList.remove('bg-success', 'bg-warning', 'bg-danger');
+                
+                // Add appropriate color class
+                const score = seoData.seo_score.percentage;
+                if (score >= 80) {
+                    scoreCircle.classList.add('bg-success');
+                } else if (score >= 50) {
+                    scoreCircle.classList.add('bg-warning');
+                } else {
+                    scoreCircle.classList.add('bg-danger');
+                }
+            }
+        }
+        
+        // Display recommendations
+        if (seoData.recommendations && seoData.recommendations.length > 0) {
+            const recommendationsElement = document.getElementById('keyword-recommendations');
+            recommendationsElement.innerHTML = '';
+            
+            for (const recommendation of seoData.recommendations) {
+                const li = document.createElement('li');
+                li.textContent = recommendation;
+                recommendationsElement.appendChild(li);
+            }
+        }
+        
+        // Display title analysis
+        if (seoData.title_analysis) {
+            const titleAnalysis = document.getElementById('title-analysis');
+            const charCount = seoData.title_analysis.character_count;
+            const charLimit = seoData.title_analysis.character_limit;
+            let statusClass = 'text-success';
+            
+            if (charCount > charLimit) {
+                statusClass = 'text-danger';
+            } else if (charCount < 100) {
+                statusClass = 'text-warning';
+            }
+            
+            titleAnalysis.innerHTML = `
+                <div class="${statusClass}">
+                    Character count: ${charCount}/${charLimit} 
+                    ${charCount > charLimit ? '(Too long)' : charCount < 100 ? '(Could be longer)' : '(Optimal)'}
+                </div>
+            `;
+        }
+        
+        // Display keyword density analysis
+        if (seoData.keyword_density) {
+            const densityTable = document.getElementById('keyword-density-table');
+            densityTable.innerHTML = '';
+            
+            Object.entries(seoData.keyword_density).forEach(([keyword, data]) => {
+                const row = document.createElement('tr');
+                
+                // Keyword
+                const keywordCell = document.createElement('td');
+                keywordCell.textContent = keyword;
+                row.appendChild(keywordCell);
+                
+                // Count
+                const countCell = document.createElement('td');
+                countCell.textContent = data.count;
+                row.appendChild(countCell);
+                
+                // Density
+                const densityCell = document.createElement('td');
+                densityCell.textContent = data.percentage.toFixed(2) + '%';
+                row.appendChild(densityCell);
+                
+                densityTable.appendChild(row);
+            });
+        }
+    }
+
+    // Function to animate count for SEO score
+    function animateCount(element, start, end, duration) {
+        if (!element) return;
+        
+        let startTimestamp = null;
+        const step = (timestamp) => {
+            if (!startTimestamp) startTimestamp = timestamp;
+            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+            const value = Math.floor(progress * (end - start) + start);
+            element.textContent = value;
+            if (progress < 1) {
+                window.requestAnimationFrame(step);
+            } else {
+                element.textContent = end;
+            }
+        };
+        window.requestAnimationFrame(step);
+    }

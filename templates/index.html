@@ -106,42 +106,51 @@
                         </div>
                     </div>
                     
-                    <!-- Keywords Section -->
+                    <!-- SEO Analysis Section -->
                     <div class="card section-card">
                         <div class="card-header bg-info-subtle">
-                            <h5 class="mb-0">Keywords</h5>
-                            <button id="copy-keywords" class="btn btn-sm btn-outline-secondary copy-btn" data-content="">
-                                Copy
-                            </button>
+                            <h5 class="mb-0">SEO Analysis</h5>
                         </div>
                         <div class="card-body">
-                            <div id="keywords-container" class="keywords-container"></div>
-                        </div>
-                    </div>
-                    
-                    <!-- Competitor URLs Section -->
-                    <div class="card section-card">
-                        <div class="card-header bg-info-subtle">
-                            <h5 class="mb-0">Top Selling Similar Products</h5>
-                            <button id="copy-urls" class="btn btn-sm btn-outline-secondary copy-btn" data-content="">
-                                Copy All URLs
-                            </button>
-                        </div>
-                        <div class="card-body">
-                            <div id="competitor-urls" class="competitor-urls">
-                                <div class="table-responsive">
-                                    <table class="table table-striped">
-                                        <thead>
-                                            <tr>
-                                                <th scope="col">#</th>
-                                                <th scope="col">Product</th>
-                                                <th scope="col">URL</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="competitor-urls-list">
-                                            <!-- Competitor URLs will be populated here -->
-                                        </tbody>
-                                    </table>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="seo-score-container text-center mb-4">
+                                        <h6>Overall SEO Score</h6>
+                                        <div id="seo-score-display" class="seo-score-display">
+                                            <div class="seo-score-circle">
+                                                <span id="seo-score">0</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-8">
+                                    <div class="mb-3">
+                                        <h6>Title Analysis</h6>
+                                        <div id="title-analysis"></div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <h6>Keyword Recommendations</h6>
+                                        <ul id="keyword-recommendations" class="list-unstyled">
+                                            <!-- Recommendations will be added here -->
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h6>Keyword Density</h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Keyword</th>
+                                                        <th>Count</th>
+                                                        <th>Density</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="keyword-density-table">
+                                                    <!-- Keyword density data will be added here -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
