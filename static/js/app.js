@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const urlsContainer = document.getElementById('urls-container');
     
     // Initialize with default feature inputs
-    if (featuresContainer.children.length === 0) {
+    if (featuresContainer && featuresContainer.children.length === 0) {
         for (let i = 0; i < 3; i++) {
             addFeatureInput();
         }
@@ -50,6 +50,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to add new feature input
     function addFeatureInput() {
+        if (!featuresContainer) return;
+        
         const newFeatureItem = document.createElement('div');
         newFeatureItem.className = 'feature-item';
         
@@ -63,6 +65,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to add URL input
     function addUrlInput() {
+        if (!urlsContainer) return;
+        
         const newUrlItem = document.createElement('div');
         newUrlItem.className = 'url-item input-group mb-2';
         
@@ -79,8 +83,16 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         
         // Get form values
-        const productName = document.getElementById('product-name').value.trim();
-        const category = document.getElementById('category').value.trim();
+        const productNameEl = document.getElementById('product-name');
+        const categoryEl = document.getElementById('category');
+        
+        if (!productNameEl || !categoryEl) {
+            console.error('Required form elements not found');
+            return;
+        }
+        
+        const productName = productNameEl.value.trim();
+        const category = categoryEl.value.trim();
         
         // Get features
         const featureInputs = document.querySelectorAll('.feature-input');
@@ -89,8 +101,10 @@ document.addEventListener('DOMContentLoaded', function() {
             .filter(feature => feature !== '');
             
         // Get keywords (if provided)
-        const keywordsInput = document.getElementById('keywords').value.trim();
-        const keywords = keywordsInput ? keywordsInput.split(',').map(k => k.trim()).filter(k => k !== '') : [];
+        const keywordsEl = document.getElementById('keywords');
+        const keywords = keywordsEl && keywordsEl.value.trim() 
+            ? keywordsEl.value.trim().split(',').map(k => k.trim()).filter(k => k !== '') 
+            : [];
         
         // Get competitor URLs (if provided)
         const urlInputs = document.querySelectorAll('.competitor-url');
@@ -111,8 +125,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Show loading overlay
-        loadingOverlay.style.display = 'flex';
-        errorContainer.style.display = 'none';
+        if (loadingOverlay) {
+            loadingOverlay.style.display = 'flex';
+        }
+        if (errorContainer) {
+            errorContainer.style.display = 'none';
+        }
         
         // Prepare data for API request
         const requestData = {
@@ -150,14 +168,18 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(data => {
             // Hide loading overlay
-            loadingOverlay.style.display = 'none';
+            if (loadingOverlay) {
+                loadingOverlay.style.display = 'none';
+            }
             
             // Display results
             displayResults(data);
         })
         .catch(error => {
             // Hide loading overlay
-            loadingOverlay.style.display = 'none';
+            if (loadingOverlay) {
+                loadingOverlay.style.display = 'none';
+            }
             
             // Show error message
             showError(error.message);
@@ -167,83 +189,100 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Display the generated results
     function displayResults(data) {
+        if (!outputContainer) return;
+        
         // Set title
-        document.getElementById('product-title').textContent = data.title;
-        document.getElementById('copy-title').dataset.content = data.title;
+        const titleEl = document.getElementById('product-title');
+        const copyTitleBtn = document.getElementById('copy-title');
+        
+        if (titleEl) titleEl.textContent = data.title;
+        if (copyTitleBtn) copyTitleBtn.dataset.content = data.title;
         
         // Set bullet points
         const bulletsList = document.getElementById('bullets-list');
-        bulletsList.innerHTML = '';
+        if (bulletsList) {
+            bulletsList.innerHTML = '';
+            
+            data.bullets.forEach(bullet => {
+                const li = document.createElement('li');
+                li.textContent = bullet;
+                bulletsList.appendChild(li);
+            });
+        }
         
-        data.bullets.forEach(bullet => {
-            const li = document.createElement('li');
-            li.textContent = bullet;
-            bulletsList.appendChild(li);
-        });
-        
-        document.getElementById('copy-bullets').dataset.content = data.bullets.join('\n');
+        const copyBulletsBtn = document.getElementById('copy-bullets');
+        if (copyBulletsBtn) copyBulletsBtn.dataset.content = data.bullets.join('\n');
         
         // Set description
-        document.getElementById('product-description').textContent = data.description;
-        document.getElementById('copy-description').dataset.content = data.description;
+        const descEl = document.getElementById('product-description');
+        const copyDescBtn = document.getElementById('copy-description');
+        
+        if (descEl) descEl.textContent = data.description;
+        if (copyDescBtn) copyDescBtn.dataset.content = data.description;
         
         // Set keywords
         if (data.keywords && data.keywords.length > 0) {
             const keywordsContainer = document.getElementById('keywords-container');
-            keywordsContainer.innerHTML = '';
-            
-            // Create keyword badges
-            data.keywords.forEach(keyword => {
-                const badge = document.createElement('span');
-                badge.className = 'badge bg-secondary me-2 mb-2';
-                badge.textContent = keyword;
-                keywordsContainer.appendChild(badge);
-            });
+            if (keywordsContainer) {
+                keywordsContainer.innerHTML = '';
+                
+                // Create keyword badges
+                data.keywords.forEach(keyword => {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-secondary me-2 mb-2';
+                    badge.textContent = keyword;
+                    keywordsContainer.appendChild(badge);
+                });
+            }
             
             // Set copy content
-            document.getElementById('copy-keywords').dataset.content = data.keywords.join(', ');
+            const copyKeywordsBtn = document.getElementById('copy-keywords');
+            if (copyKeywordsBtn) copyKeywordsBtn.dataset.content = data.keywords.join(', ');
         }
         
         // Set competitor URLs
         if (data.competitor_urls && data.competitor_urls.length > 0) {
             const urlsList = document.getElementById('competitor-urls-list');
-            urlsList.innerHTML = '';
-            
-            // Prepare content for copy button
-            let urlsText = '';
-            
-            // Add each competitor URL to the table
-            data.competitor_urls.forEach((competitor, index) => {
-                const row = document.createElement('tr');
+            if (urlsList) {
+                urlsList.innerHTML = '';
                 
-                // Position number
-                const positionCell = document.createElement('td');
-                positionCell.textContent = index + 1;
-                row.appendChild(positionCell);
+                // Prepare content for copy button
+                let urlsText = '';
                 
-                // Product title
-                const titleCell = document.createElement('td');
-                titleCell.textContent = competitor.title || 'Competitor Product';
-                row.appendChild(titleCell);
+                // Add each competitor URL to the table
+                data.competitor_urls.forEach((competitor, index) => {
+                    const row = document.createElement('tr');
+                    
+                    // Position number
+                    const positionCell = document.createElement('td');
+                    positionCell.textContent = index + 1;
+                    row.appendChild(positionCell);
+                    
+                    // Product title
+                    const titleCell = document.createElement('td');
+                    titleCell.textContent = competitor.title || 'Competitor Product';
+                    row.appendChild(titleCell);
+                    
+                    // URL with link
+                    const urlCell = document.createElement('td');
+                    const urlLink = document.createElement('a');
+                    urlLink.href = competitor.url;
+                    urlLink.textContent = competitor.url;
+                    urlLink.target = '_blank';
+                    urlLink.rel = 'noopener noreferrer';
+                    urlCell.appendChild(urlLink);
+                    row.appendChild(urlCell);
+                    
+                    urlsList.appendChild(row);
+                    
+                    // Add to copy text
+                    urlsText += `${competitor.url}\n`;
+                });
                 
-                // URL with link
-                const urlCell = document.createElement('td');
-                const urlLink = document.createElement('a');
-                urlLink.href = competitor.url;
-                urlLink.textContent = competitor.url;
-                urlLink.target = '_blank';
-                urlLink.rel = 'noopener noreferrer';
-                urlCell.appendChild(urlLink);
-                row.appendChild(urlCell);
-                
-                urlsList.appendChild(row);
-                
-                // Add to copy text
-                urlsText += `${competitor.url}\n`;
-            });
-            
-            // Set copy content for URLs
-            document.getElementById('copy-urls').dataset.content = urlsText.trim();
+                // Set copy content for URLs
+                const copyUrlsBtn = document.getElementById('copy-urls');
+                if (copyUrlsBtn) copyUrlsBtn.dataset.content = urlsText.trim();
+            }
         }
         
         // Display SEO analysis if available
@@ -265,7 +304,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update SEO score with animation
         if (seoData.seo_score && typeof seoData.seo_score.percentage === 'number') {
             const seoScoreElement = document.getElementById('seo-score');
-            animateCount(seoScoreElement, 0, seoData.seo_score.percentage, 1000);
+            if (seoScoreElement) {
+                animateCount(seoScoreElement, 0, seoData.seo_score.percentage, 1000);
+            }
             
             // Add color class based on score
             const scoreCircle = document.querySelector('.seo-score-circle');
@@ -288,61 +329,67 @@ document.addEventListener('DOMContentLoaded', function() {
         // Display recommendations
         if (seoData.recommendations && seoData.recommendations.length > 0) {
             const recommendationsElement = document.getElementById('keyword-recommendations');
-            recommendationsElement.innerHTML = '';
-            
-            for (const recommendation of seoData.recommendations) {
-                const li = document.createElement('li');
-                li.textContent = recommendation;
-                recommendationsElement.appendChild(li);
+            if (recommendationsElement) {
+                recommendationsElement.innerHTML = '';
+                
+                for (const recommendation of seoData.recommendations) {
+                    const li = document.createElement('li');
+                    li.textContent = recommendation;
+                    recommendationsElement.appendChild(li);
+                }
             }
         }
         
         // Display title analysis
         if (seoData.title_analysis) {
             const titleAnalysis = document.getElementById('title-analysis');
-            const charCount = seoData.title_analysis.character_count;
-            const charLimit = seoData.title_analysis.character_limit;
-            let statusClass = 'text-success';
-            
-            if (charCount > charLimit) {
-                statusClass = 'text-danger';
-            } else if (charCount < 100) {
-                statusClass = 'text-warning';
+            if (titleAnalysis) {
+                const charCount = seoData.title_analysis.character_count;
+                const charLimit = seoData.title_analysis.character_limit;
+                let statusClass = 'text-success';
+                
+                if (charCount > charLimit) {
+                    statusClass = 'text-danger';
+                } else if (charCount < 100) {
+                    statusClass = 'text-warning';
+                }
+                
+                titleAnalysis.innerHTML = `
+                    <div class="${statusClass}">
+                        Character count: ${charCount}/${charLimit} 
+                        ${charCount > charLimit ? '(Too long)' : charCount < 100 ? '(Could be longer)' : '(Optimal)'}
+                    </div>
+                `;
             }
-            
-            titleAnalysis.innerHTML = `
-                <div class="${statusClass}">
-                    Character count: ${charCount}/${charLimit} 
-                    ${charCount > charLimit ? '(Too long)' : charCount < 100 ? '(Could be longer)' : '(Optimal)'}
-                </div>
-            `;
         }
         
         // Display keyword density analysis
         if (seoData.keyword_density) {
             const densityTable = document.getElementById('keyword-density-table');
-            densityTable.innerHTML = '';
-            
-            Object.entries(seoData.keyword_density).forEach(([keyword, data]) => {
-                const row = document.createElement('tr');
+            if (densityTable) {
+                densityTable.innerHTML = '';
                 
-                // Keyword
-                const keywordCell = document.createElement('td');
-                keywordCell.textContent = keyword;
-                row.appendChild(keywordCell);
-                
-                // Count
-                const countCell = document.createElement('td');
-                countCell.textContent = data.count;
-                row.appendChild(countCell);
-                
-                // Density
-                const densityCell = document.createElement('td');
-                densityCell.textContent = data.percentage.toFixed(2) + '%';
-                row.appendChild(densityCell);
-                
-                densityTable.appendChild(row);
-            });
+                Object.entries(seoData.keyword_density).forEach(([keyword, data]) => {
+                    const row = document.createElement('tr');
+                    
+                    // Keyword
+                    const keywordCell = document.createElement('td');
+                    keywordCell.textContent = keyword;
+                    row.appendChild(keywordCell);
+                    
+                    // Count
+                    const countCell = document.createElement('td');
+                    countCell.textContent = data.count;
+                    row.appendChild(countCell);
+                    
+                    // Density
+                    const densityCell = document.createElement('td');
+                    densityCell.textContent = data.percentage.toFixed(2) + '%';
+                    row.appendChild(densityCell);
+                    
+                    densityTable.appendChild(row);
+                });
+            }
         }
     }
     
@@ -367,6 +414,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Show error message
     function showError(message) {
+        if (!errorContainer) return;
         errorContainer.textContent = message;
         errorContainer.style.display = 'block';
     }
