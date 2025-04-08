@@ -145,6 +145,86 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('product-description').textContent = data.description;
         document.getElementById('copy-description').dataset.content = data.description;
         
+        // Set keywords
+        if (data.keywords && data.keywords.length > 0) {
+            const keywordsContainer = document.getElementById('keywords-container');
+            keywordsContainer.innerHTML = '';
+            
+            // Create keyword badges
+            data.keywords.forEach(keyword => {
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-secondary me-2 mb-2';
+                badge.textContent = keyword;
+                keywordsContainer.appendChild(badge);
+            });
+            
+            // Set copy content
+            document.getElementById('copy-keywords').dataset.content = data.keywords.join(', ');
+        }
+        
+        // Set competitor URLs
+        if (data.competitor_urls && data.competitor_urls.length > 0) {
+            const urlsList = document.getElementById('competitor-urls-list');
+            urlsList.innerHTML = '';
+            
+            // Prepare content for copy button
+            let urlsText = '';
+            
+            // Add each competitor URL to the table
+            data.competitor_urls.forEach((competitor, index) => {
+                const row = document.createElement('tr');
+                
+                // Index column
+                const indexCell = document.createElement('th');
+                indexCell.scope = 'row';
+                indexCell.textContent = index + 1;
+                row.appendChild(indexCell);
+                
+                // Title column
+                const titleCell = document.createElement('td');
+                titleCell.textContent = competitor.title;
+                row.appendChild(titleCell);
+                
+                // URL column with copy button
+                const urlCell = document.createElement('td');
+                
+                // URL truncated display with tooltip
+                const urlSpan = document.createElement('span');
+                const shortUrl = competitor.url.length > 30 ? 
+                    competitor.url.substring(0, 30) + '...' : 
+                    competitor.url;
+                urlSpan.textContent = shortUrl;
+                urlSpan.title = competitor.url;
+                urlSpan.className = 'me-2';
+                urlCell.appendChild(urlSpan);
+                
+                // Individual copy button for this URL
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'btn btn-sm btn-outline-info';
+                copyBtn.textContent = 'Copy';
+                copyBtn.dataset.content = competitor.url;
+                copyBtn.addEventListener('click', function() {
+                    navigator.clipboard.writeText(this.dataset.content).then(() => {
+                        const originalText = this.textContent;
+                        this.textContent = 'Copied!';
+                        setTimeout(() => {
+                            this.textContent = originalText;
+                        }, 2000);
+                    });
+                });
+                urlCell.appendChild(copyBtn);
+                
+                row.appendChild(urlCell);
+                urlsList.appendChild(row);
+                
+                // Add to copy all content
+                urlsText += `${index + 1}. ${competitor.title}: ${competitor.url}\n`;
+            });
+            
+            // Set copy all button content
+            document.getElementById('copy-urls').dataset.content = urlsText;
+        }
+        
         // Setup copy buttons
         setupCopyButtons();
         

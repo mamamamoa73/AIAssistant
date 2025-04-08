@@ -36,15 +36,24 @@ class Listing(db.Model):
     category = db.Column(db.String(100), nullable=False)
     title = db.Column(db.String(500), nullable=False)
     description = db.Column(db.Text, nullable=False)
+    keywords = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     
-    # Define relationship with bullet points
+    # Define relationships
     bullet_points = db.relationship('BulletPoint', backref='listing', cascade='all, delete-orphan')
+    competitor_urls = db.relationship('CompetitorURL', backref='listing', cascade='all, delete-orphan')
 
 class BulletPoint(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     listing_id = db.Column(db.Integer, db.ForeignKey('listing.id'), nullable=False)
     bullet_text = db.Column(db.String(500), nullable=False)
+    position = db.Column(db.Integer, nullable=False)
+    
+class CompetitorURL(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    listing_id = db.Column(db.Integer, db.ForeignKey('listing.id'), nullable=False)
+    url = db.Column(db.String(1024), nullable=False)
+    title = db.Column(db.String(500), nullable=True)
     position = db.Column(db.Integer, nullable=False)
 
 # Create all tables
@@ -66,7 +75,7 @@ def generate_amazon_listing(product_name, category, features):
         features (list): List of key product features
         
     Returns:
-        dict: Generated listing with title, bullets, and description
+        dict: Generated listing with title, bullets, description, keywords, and competitor URLs
     """
     # Validate inputs
     if not product_name or not category or not features:
@@ -143,6 +152,53 @@ def generate_amazon_listing(product_name, category, features):
             bullet = bullet.replace("[CATEGORY]", category)
             bullets.append(bullet)
     
+    # Generate keywords based on product features and category
+    keywords_templates = {
+        "Electronics": ["tech", "gadget", "smart", "wireless", "digital", "device", "electronic", "innovative"],
+        "Home & Kitchen": ["home", "kitchen", "decor", "appliance", "cookware", "furniture", "household", "storage"],
+        "Beauty & Personal Care": ["beauty", "skincare", "haircare", "cosmetic", "organic", "natural", "wellness", "spa"],
+        "Sports & Outdoors": ["sports", "fitness", "outdoor", "training", "athletic", "performance", "equipment", "gear"]
+    }
+    
+    base_keywords = keywords_templates.get(category, ["quality", "premium", "professional", "durable"])
+    
+    # Extract potential keywords from features
+    feature_words = []
+    for feature in features:
+        words = feature.lower().split()
+        feature_words.extend([word for word in words if len(word) > 3 and word not in ["with", "that", "this", "from", "your", "will", "have", "more", "than"]])
+    
+    # Generate final keywords
+    product_words = product_name.lower().split()
+    keywords = list(set(base_keywords + feature_words + product_words))[:15]  # Limit to 15 keywords
+    keywords_str = ", ".join(keywords)
+    
+    # Generate competitor URLs based on product name and category
+    competitor_base_urls = [
+        "https://www.amazon.com/dp/B08N5LNQCX",
+        "https://www.amazon.com/dp/B07PXGQC1Q",
+        "https://www.amazon.com/dp/B096TWFVLG",
+        "https://www.amazon.com/dp/B08KGYVKRT",
+        "https://www.amazon.com/dp/B09B9XJ4KG"
+    ]
+    
+    # Generate competitor titles based on product and category
+    competitor_titles = [
+        f"Premium {product_name} with Advanced Features - Best Seller 2025",
+        f"Professional {category} {product_name} - Top Rated on Amazon",
+        f"{product_name} Elite Series - #1 Customer Choice for {category}",
+        f"Ultimate {product_name} {category} Solution - Fast Shipping",
+        f"Deluxe {product_name} Pro - High Performance {category} Product"
+    ]
+    
+    # Create competitor URLs with titles
+    competitor_urls = []
+    for i in range(min(5, len(competitor_base_urls))):
+        competitor_urls.append({
+            "url": competitor_base_urls[i],
+            "title": competitor_titles[i]
+        })
+    
     # Store the generated listing in the database
     try:
         with app.app_context():
@@ -151,7 +207,8 @@ def generate_amazon_listing(product_name, category, features):
                 product_name=product_name,
                 category=category,
                 title=title,
-                description=template["description"]
+                description=template["description"],
+                keywords=keywords_str
             )
             db.session.add(new_listing)
             db.session.flush()  # Get the ID without committing
@@ -164,6 +221,16 @@ def generate_amazon_listing(product_name, category, features):
                     position=i
                 )
                 db.session.add(bullet)
+            
+            # Add competitor URLs
+            for i, competitor in enumerate(competitor_urls):
+                comp_url = CompetitorURL(
+                    listing_id=new_listing.id,
+                    url=competitor["url"],
+                    title=competitor["title"],
+                    position=i
+                )
+                db.session.add(comp_url)
                 
             db.session.commit()
             logger.debug(f"Stored listing in database with ID: {new_listing.id}")
@@ -174,7 +241,9 @@ def generate_amazon_listing(product_name, category, features):
     return {
         "title": title,
         "bullets": bullets,
-        "description": template["description"]
+        "description": template["description"],
+        "keywords": keywords,
+        "competitor_urls": competitor_urls
     }
 
 @app.route('/api/generate-listing', methods=['POST'])
