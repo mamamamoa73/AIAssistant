@@ -17,35 +17,44 @@ class AIAssistant {
         this.tips = {
             welcome: [
                 "👋 Hi there! I'm Listy, your AI listing assistant!",
-                "Need help creating a great Amazon listing? I'm here to guide you!"
+                "Need help creating a great Amazon listing? I'm here to guide you!",
+                "I'll generate listings with SEO, AEO (Amazon Everything Optimizer), and psychological selling techniques!"
             ],
             productName: [
                 "A clear, descriptive product name helps buyers find your product",
                 "Keep your product name concise but descriptive",
-                "Include your main keywords in your product name for better SEO"
+                "Include your main keywords in your product name for better SEO",
+                "Amazon's A9 algorithm gives priority to products with keywords in the first 5 words"
             ],
             category: [
                 "Choosing the right category helps shoppers find your product",
-                "Be specific with your category - it affects how Amazon ranks your listing"
+                "Be specific with your category - it affects how Amazon ranks your listing",
+                "Your category influences the backend keywords Amazon associates with your listing"
             ],
             features: [
                 "Highlight unique selling points that set your product apart",
                 "Describe benefits, not just features - how does it make life better?",
-                "Quantify when possible - numbers are powerful (e.g., '50% more durable')"
+                "Quantify when possible - numbers are powerful (e.g., '50% more durable')",
+                "Use psychological principles like scarcity ('limited stock') and social proof ('loved by thousands')"
             ],
             keywords: [
                 "Include relevant search terms buyers might use to find your product",
                 "Think about problem-solving terms customers might search for",
-                "Don't worry about repeating words or plurals - Amazon's algorithm handles that"
+                "Don't worry about repeating words or plurals - Amazon's algorithm handles that",
+                "Amazon indexes about 250 characters in the backend keywords field"
             ],
             competitorUrls: [
                 "Adding competitor listings helps me understand what's working in your niche",
-                "Look at top-selling products to see what keywords they're targeting"
+                "Look at top-selling products to see what keywords they're targeting",
+                "Study competitors to see which psychological selling techniques they're using"
             ],
             results: [
                 "Here's your listing! Feel free to edit any section to match your style",
                 "A great title includes your main keywords and stays under 200 characters",
-                "Strong bullet points focus on benefits first, then features"
+                "Strong bullet points focus on benefits first, then features",
+                "Your SEO analysis shows how well your listing is optimized for Amazon search",
+                "The AEO analysis shows how your listing will perform in Amazon's A9 algorithm",
+                "Look at the psychological techniques to see what emotional triggers are used in your listing"
             ]
         };
         
@@ -96,11 +105,6 @@ class AIAssistant {
         
         // Add event listeners for form fields to show contextual tips
         this.setupEventListeners();
-        // Toggle assistant button
-        const toggleButton = document.getElementById("toggle-assistant");
-        if (toggleButton) {
-            toggleButton.addEventListener("click", () => this.toggle());
-        }
     }
     
     setupEventListeners() {

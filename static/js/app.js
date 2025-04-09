@@ -290,6 +290,16 @@ document.addEventListener('DOMContentLoaded', function() {
             displaySeoAnalysis(data.seo_analysis);
         }
         
+        // Display AEO analysis if available
+        if (data.aeo_analysis) {
+            displayAeoAnalysis(data.aeo_analysis);
+        }
+        
+        // Display psychological techniques if available
+        if (data.psychological_techniques) {
+            displayPsychTechniques(data.psychological_techniques);
+        }
+        
         // Show the output container
         outputContainer.style.display = 'block';
         
@@ -390,6 +400,181 @@ document.addEventListener('DOMContentLoaded', function() {
                     densityTable.appendChild(row);
                 });
             }
+        }
+    }
+    
+    // Display Amazon Everything Optimizer (AEO) analysis
+    function displayAeoAnalysis(aeoData) {
+        if (!aeoData) return;
+        
+        // Create AEO analysis section if it doesn't exist
+        let aeoSection = document.getElementById('aeo-analysis-section');
+        if (!aeoSection) {
+            const seoSection = document.querySelector('.seo-analysis');
+            if (!seoSection) return;
+            
+            aeoSection = document.createElement('div');
+            aeoSection.id = 'aeo-analysis-section';
+            aeoSection.className = 'card mt-4 analysis-card';
+            aeoSection.innerHTML = `
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Amazon Everything Optimizer (AEO) Analysis</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Applied Strategies</h6>
+                            <ul id="aeo-strategies" class="list-group"></ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Recommendations</h6>
+                            <ul id="aeo-recommendations" class="list-group"></ul>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Insert after SEO section
+            seoSection.parentNode.insertBefore(aeoSection, seoSection.nextSibling);
+        }
+        
+        // Update applied strategies
+        const strategiesList = document.getElementById('aeo-strategies');
+        if (strategiesList && aeoData.strategies_applied) {
+            strategiesList.innerHTML = '';
+            aeoData.strategies_applied.forEach(strategy => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.innerHTML = `<i class="fas fa-check text-success me-2"></i> ${strategy}`;
+                strategiesList.appendChild(li);
+            });
+        }
+        
+        // Update recommendations
+        const recommendationsList = document.getElementById('aeo-recommendations');
+        if (recommendationsList && aeoData.recommendations) {
+            recommendationsList.innerHTML = '';
+            
+            if (aeoData.recommendations.length === 0) {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.innerHTML = '<i class="fas fa-info-circle text-info me-2"></i> No recommendations - Your listing is well-optimized for Amazon\'s A9 algorithm!';
+                recommendationsList.appendChild(li);
+            } else {
+                aeoData.recommendations.forEach(recommendation => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item';
+                    li.innerHTML = `<i class="fas fa-lightbulb text-warning me-2"></i> ${recommendation}`;
+                    recommendationsList.appendChild(li);
+                });
+            }
+        }
+    }
+    
+    // Display psychological selling techniques analysis
+    function displayPsychTechniques(psychData) {
+        if (!psychData) return;
+        
+        // Create psychological techniques section if it doesn't exist
+        let psychSection = document.getElementById('psych-techniques-section');
+        if (!psychSection) {
+            const aeoSection = document.getElementById('aeo-analysis-section');
+            const insertAfter = aeoSection || document.querySelector('.seo-analysis');
+            if (!insertAfter) return;
+            
+            psychSection = document.createElement('div');
+            psychSection.id = 'psych-techniques-section';
+            psychSection.className = 'card mt-4 analysis-card';
+            psychSection.innerHTML = `
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Psychological Selling Techniques</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Applied Techniques</h6>
+                            <ul id="psych-techniques" class="list-group"></ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Impact Analysis</h6>
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Technique</th>
+                                            <th>Impact Level</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="psych-impact-table"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Insert after AEO section
+            insertAfter.parentNode.insertBefore(psychSection, insertAfter.nextSibling);
+        }
+        
+        // Update applied techniques
+        const techniquesList = document.getElementById('psych-techniques');
+        if (techniquesList && psychData.applied_techniques) {
+            techniquesList.innerHTML = '';
+            
+            if (psychData.applied_techniques.length === 0) {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.innerHTML = '<i class="fas fa-info-circle text-info me-2"></i> No psychological techniques detected in the listing content.';
+                techniquesList.appendChild(li);
+            } else {
+                psychData.applied_techniques.forEach(technique => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item';
+                    li.innerHTML = `<i class="fas fa-check text-success me-2"></i> ${technique}`;
+                    techniquesList.appendChild(li);
+                });
+            }
+        }
+        
+        // Update impact analysis
+        const impactTable = document.getElementById('psych-impact-table');
+        if (impactTable && psychData.impact_analysis) {
+            impactTable.innerHTML = '';
+            
+            const techniques = [
+                { id: 'scarcity', name: 'Scarcity Principle' },
+                { id: 'social_proof', name: 'Social Proof' },
+                { id: 'authority', name: 'Authority Principle' },
+                { id: 'reciprocity', name: 'Reciprocity Principle' }
+            ];
+            
+            techniques.forEach(technique => {
+                const row = document.createElement('tr');
+                
+                // Technique name
+                const nameCell = document.createElement('td');
+                nameCell.textContent = technique.name;
+                row.appendChild(nameCell);
+                
+                // Impact level
+                const impactCell = document.createElement('td');
+                const impact = psychData.impact_analysis[technique.id] || 'Not Applied';
+                let badgeClass = 'badge bg-secondary';
+                
+                if (impact === 'High') {
+                    badgeClass = 'badge bg-success';
+                } else if (impact === 'Medium') {
+                    badgeClass = 'badge bg-warning text-dark';
+                } else if (impact === 'Low') {
+                    badgeClass = 'badge bg-danger';
+                }
+                
+                impactCell.innerHTML = `<span class="${badgeClass}">${impact}</span>`;
+                row.appendChild(impactCell);
+                
+                impactTable.appendChild(row);
+            });
         }
     }
     
