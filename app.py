@@ -547,7 +547,7 @@ def generate_amazon_listing(product_name, category, features, target_keywords=No
 
 @app.route('/api/generate-listing', methods=['POST'])
 def generate_listing():
-    """Generate Amazon product listing using template-based approach."""
+    """Generate Amazon product listing using OpenAI GPT model."""
     try:
         # Get request data from the frontend
         data = request.json
@@ -561,13 +561,38 @@ def generate_listing():
         target_keywords = data.get('keywords', None)
         competitor_urls = data.get('competitor_urls', None)
         
-        # Generate the listing using templates
-        result = generate_amazon_listing(
-            data['product_name'],
-            data['category'],
-            data['features'],
-            target_keywords=target_keywords
-        )
+        # Determine which generator to use - default to OpenAI
+        use_openai = True
+        
+        try:
+            # Import only if we need it
+            if use_openai:
+                import openai_utils
+                
+                # Generate the listing using OpenAI
+                result = openai_utils.generate_amazon_listing(
+                    data['product_name'],
+                    data['category'],
+                    data['features'],
+                    target_keywords=target_keywords
+                )
+            else:
+                # Fallback to template-based approach if OpenAI fails
+                result = generate_amazon_listing(
+                    data['product_name'],
+                    data['category'],
+                    data['features'],
+                    target_keywords=target_keywords
+                )
+        except Exception as generation_error:
+            logger.error(f"Error with OpenAI generation: {str(generation_error)}. Falling back to template.")
+            # Fallback to template-based approach
+            result = generate_amazon_listing(
+                data['product_name'],
+                data['category'],
+                data['features'],
+                target_keywords=target_keywords
+            )
         
         # Replace generated competitor URLs with user-provided ones if available
         if competitor_urls and isinstance(competitor_urls, list) and len(competitor_urls) > 0:
@@ -579,6 +604,55 @@ def generate_listing():
     except Exception as e:
         logger.error(f"Error generating listing: {str(e)}")
         return jsonify({"detail": f"Failed to generate listing: {str(e)}"}), 500
+
+@app.route('/api/analyze-competitors', methods=['POST'])
+def analyze_competitors():
+    """Analyze competitor listings to extract insights."""
+    try:
+        # Get request data
+        data = request.json
+        logger.debug(f"Received competitor analysis request: {data}")
+        
+        # Validate input data
+        if not data or not all(key in data for key in ['product_name', 'category', 'competitor_urls']):
+            return jsonify({"detail": "Missing required fields"}), 400
+        
+        # Ensure we have competitor URLs to analyze
+        competitor_urls = data.get('competitor_urls', [])
+        if not competitor_urls or len(competitor_urls) == 0:
+            return jsonify({"detail": "No competitor URLs provided"}), 400
+        
+        # Import OpenAI utils
+        try:
+            import openai_utils
+            
+            # Extract competitor titles if they exist
+            competitor_titles = []
+            for comp in competitor_urls:
+                if isinstance(comp, dict) and 'title' in comp and comp['title']:
+                    competitor_titles.append(comp['title'])
+                elif isinstance(comp, str):
+                    competitor_titles.append(comp)
+            
+            # Analyze the competitors
+            analysis = openai_utils.analyze_competitive_listings(
+                competitor_titles,
+                data['product_name'],
+                data['category']
+            )
+            
+            if analysis:
+                return jsonify(analysis)
+            else:
+                return jsonify({"detail": "Could not analyze competitors"}), 500
+                
+        except Exception as e:
+            logger.error(f"Error analyzing competitors: {str(e)}")
+            return jsonify({"detail": f"Failed to analyze competitors: {str(e)}"}), 500
+    
+    except Exception as e:
+        logger.error(f"Error in competitor analysis endpoint: {str(e)}")
+        return jsonify({"detail": f"Error in competitor analysis: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

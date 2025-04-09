@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // URL handling elements
     const addUrlBtn = document.getElementById('add-url');
     const urlsContainer = document.getElementById('urls-container');
+    const analyzeCompetitorsBtn = document.getElementById('analyze-competitors');
+    const competitorAnalysisSection = document.getElementById('competitor-analysis');
+    const competitorAnalysisContent = document.getElementById('competitor-analysis-content');
     
     // Initialize with default feature inputs
     if (featuresContainer && featuresContainer.children.length === 0) {
@@ -25,6 +28,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (addUrlBtn) {
         addUrlBtn.addEventListener('click', addUrlInput);
+    }
+    
+    if (analyzeCompetitorsBtn) {
+        analyzeCompetitorsBtn.addEventListener('click', analyzeCompetitors);
     }
     
     // Delegate event handling for dynamically created "remove" buttons
@@ -576,6 +583,222 @@ document.addEventListener('DOMContentLoaded', function() {
                 impactTable.appendChild(row);
             });
         }
+    }
+    
+    // Function to analyze competitors
+    function analyzeCompetitors() {
+        // Get form values needed for analysis
+        const productNameEl = document.getElementById('product-name');
+        const categoryEl = document.getElementById('category');
+        
+        if (!productNameEl || !categoryEl) {
+            showError('Product name and category are required for competitor analysis');
+            return;
+        }
+        
+        const productName = productNameEl.value.trim();
+        const category = categoryEl.value.trim();
+        
+        // Validate basic inputs
+        if (!productName || !category) {
+            showError('Please enter product name and category before analyzing competitors');
+            return;
+        }
+        
+        // Get competitor URLs
+        const urlInputs = document.querySelectorAll('.competitor-url');
+        const competitorUrls = Array.from(urlInputs)
+            .map(input => input.value.trim())
+            .filter(url => url !== '');
+        
+        // Validate competitor URLs
+        if (competitorUrls.length === 0) {
+            showError('Please add at least one competitor URL to analyze');
+            return;
+        }
+        
+        // Show loading overlay
+        if (loadingOverlay) {
+            loadingOverlay.style.display = 'flex';
+        }
+        if (errorContainer) {
+            errorContainer.style.display = 'none';
+        }
+        
+        // Prepare data for API request
+        const requestData = {
+            product_name: productName,
+            category: category,
+            competitor_urls: competitorUrls.map((url, index) => {
+                return { url: url, title: '', position: index };
+            })
+        };
+        
+        // Make API request to analyze competitors
+        fetch('/api/analyze-competitors', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => {
+                    throw new Error(err.detail || 'Failed to analyze competitors');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Hide loading overlay
+            if (loadingOverlay) {
+                loadingOverlay.style.display = 'none';
+            }
+            
+            // Display analysis results
+            displayCompetitorAnalysis(data);
+        })
+        .catch(error => {
+            // Hide loading overlay
+            if (loadingOverlay) {
+                loadingOverlay.style.display = 'none';
+            }
+            
+            // Show error message
+            showError(error.message);
+            console.error('Error:', error);
+        });
+    }
+    
+    // Display competitor analysis results
+    function displayCompetitorAnalysis(data) {
+        if (!competitorAnalysisSection || !competitorAnalysisContent) return;
+        
+        // Clear previous content
+        competitorAnalysisContent.innerHTML = '';
+        
+        // Create content for analysis
+        const analysisHtml = `
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <h6>Common Keywords</h6>
+                        <div class="keywords-container mb-3">
+                            ${data.common_keywords ? data.common_keywords.map(kw => 
+                                `<span class="badge bg-info me-2 mb-2">${kw}</span>`
+                            ).join('') : 'No common keywords found'}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6>Psychological Techniques</h6>
+                        <ul class="list-group">
+                            ${data.psychological_selling_techniques ? data.psychological_selling_techniques.map(tech => 
+                                `<li class="list-group-item">${tech}</li>`
+                            ).join('') : '<li class="list-group-item">No techniques identified</li>'}
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <h6>Common Benefits Highlighted</h6>
+                        <ul class="list-group">
+                            ${data.common_benefits ? data.common_benefits.map(benefit => 
+                                `<li class="list-group-item">${benefit}</li>`
+                            ).join('') : '<li class="list-group-item">No common benefits found</li>'}
+                        </ul>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6>Title Structure Insights</h6>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <p>${data.title_structure_insights || 'No title structure insights available'}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-3">
+                <h6>Recommendations for Your Listing</h6>
+                <div class="alert alert-info">
+                    ${data.recommendations ? data.recommendations.map(rec => 
+                        `<p><i class="fas fa-lightbulb me-2"></i>${rec}</p>`
+                    ).join('') : 'No specific recommendations available'}
+                </div>
+            </div>
+            
+            <div class="mt-3">
+                <button id="use-analysis" class="btn btn-outline-primary">
+                    <i class="fas fa-magic me-2"></i>Apply Insights to Keywords
+                </button>
+            </div>
+        `;
+        
+        // Add content to the analysis section
+        competitorAnalysisContent.innerHTML = analysisHtml;
+        
+        // Show the analysis section
+        competitorAnalysisSection.style.display = 'block';
+        competitorAnalysisSection.scrollIntoView({ behavior: 'smooth' });
+        
+        // Add event listener to apply insights button
+        const useAnalysisBtn = document.getElementById('use-analysis');
+        if (useAnalysisBtn && data.common_keywords) {
+            useAnalysisBtn.addEventListener('click', () => {
+                const keywordsInput = document.getElementById('keywords');
+                if (keywordsInput) {
+                    // Get current keywords
+                    const currentKeywords = keywordsInput.value.trim();
+                    
+                    // Get suggested keywords from analysis
+                    const suggestedKeywords = data.common_keywords.join(', ');
+                    
+                    // Combine keywords (if there are existing ones)
+                    if (currentKeywords) {
+                        keywordsInput.value = currentKeywords + ', ' + suggestedKeywords;
+                    } else {
+                        keywordsInput.value = suggestedKeywords;
+                    }
+                    
+                    // Focus the input
+                    keywordsInput.focus();
+                    
+                    // Show feedback
+                    showTemporaryMessage('Applied keywords from competitor analysis!');
+                }
+            });
+        }
+    }
+    
+    // Show a temporary message
+    function showTemporaryMessage(message) {
+        // Create message element
+        const messageEl = document.createElement('div');
+        messageEl.className = 'alert alert-success alert-dismissible fade show position-fixed';
+        messageEl.style.top = '20px';
+        messageEl.style.right = '20px';
+        messageEl.style.maxWidth = '400px';
+        messageEl.style.zIndex = '9999';
+        
+        messageEl.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        // Add to document
+        document.body.appendChild(messageEl);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            messageEl.classList.remove('show');
+            setTimeout(() => {
+                document.body.removeChild(messageEl);
+            }, 300);
+        }, 3000);
     }
     
     // Function to animate count for SEO score
