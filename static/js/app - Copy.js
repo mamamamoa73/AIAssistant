@@ -158,7 +158,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Make API request
-        fetch('https://ai-assistant-cfce.onrender.com/api/generate-listing', {
+        fetch('/api/generate-listing', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -635,7 +635,7 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         
         // Make API request to analyze competitors
-        fetch('https://ai-assistant-cfce.onrender.com/api/analyze-competitors', {
+        fetch('/api/analyze-competitors', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

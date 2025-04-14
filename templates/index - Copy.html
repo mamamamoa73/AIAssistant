@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Listing Assistant</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+      background-color: #f4f4f4;
+    }
+    input, button {
+      font-size: 1rem;
+      padding: 0.5rem;
+      margin-right: 1rem;
+    }
+    #responseBox {
+      margin-top: 1rem;
+      padding: 1rem;
+      background-color: #fff;
+      border: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+  <h1>AI Listing Assistant</h1>
+  <input type="text" id="userPrompt" placeholder="Type your product or question..." size="50" />
+  <button onclick="handleAsk()">Ask</button>
+
+  <div id="responseBox">The AI’s response will appear here.</div>
+
+  <script>
+    async function handleAsk() {
+      const prompt = document.getElementById("userPrompt").value;
+      const responseBox = document.getElementById("responseBox");
+
+      responseBox.textContent = "Thinking...";
+
+      const res = await fetch("/api/ask", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ prompt: prompt })
+      });
+
+      const data = await res.json();
+      responseBox.textContent = data.response || "No response.";
+    }
+  </script>
+</body>
+</html>
