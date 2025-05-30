@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount the application code for live reloading during development
+      # Note: For production, the code should be copied into the image during build.
+      - ./backend:/app 
+    env_file:
+      - ./backend/.env # Loads environment variables from .env file in backend directory
+    environment:
+      # Ensure PYTHONPATH is set if your imports rely on the root being in the path
+      # and you're running from within the /app directory in the container.
+      # For the current structure where main.py is in /app/app, this might not be strictly needed
+      # if uvicorn is run from /app.
+      - PYTHONPATH=/app 
+    # command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload # Enable reload for dev
+    # The default CMD in the Dockerfile is uvicorn app.main:app --host 0.0.0.0 --port 8000
+    # For development with live reload, uncomment the command above and ensure your volume mount is correct.
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      # If your frontend Dockerfile uses Nginx (default for this setup), it serves on port 80.
+      - "3000:80" 
+      # If you were to run Vite dev server directly in Docker for dev (not recommended for testing prod image):
+      # - "5173:5173" 
+    volumes:
+      # For a production-like setup using the Nginx image, mounting source code isn't typical
+      # as the build artifact is already copied into the image.
+      # If you wanted live reload with Vite's dev server inside Docker (requires changing Dockerfile CMD):
+      # - ./frontend/src:/app/src 
+      # - ./frontend/public:/app/public
+      pass
+    depends_on:
+      - backend # Ensures backend starts before frontend (useful for API calls during frontend startup if any)
+    # environment:
+      # Example: If you need to pass the backend API URL to the frontend at runtime
+      # (though Vite's import.meta.env.VITE_API_BASE_URL is build-time)
+      # - VITE_API_BASE_URL=http://backend:8000/api/v1 
+      # This usually requires the entrypoint script in frontend to handle this env var.
+
+  db: # Optional PostgreSQL service, as per current MVP not fully integrated but good for future
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Persist database data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin} # Use from .env or default
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin} # Use from .env or default
+      POSTGRES_DB: ${POSTGRES_DB:-amazon_optimizer_db} # Use from .env or default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-amazon_optimizer_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data: # Defines the named volume for PostgreSQL data persistence
